@@ -7,7 +7,7 @@ const Layout = ({ children }) => {
             {/* Sidebar */}
             <Sidebar />
 
-            <div className="flex-1 flex flex-col ml-64">
+            <div className="flex-1 flex flex-col ml-60 pt-16 transition-all duration-300">
                 {/* Fixed Top Navbar */}
                 <TopNavbar />
 

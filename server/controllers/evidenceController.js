@@ -2,18 +2,6 @@ const Evidence = require('../models/Evidence');
 const Case = require('../models/Case');
 const path = require('path');
 const fs = require('fs');
-const crypto = require('crypto');
-
-// Helper to calculate file hash
-const calculateHash = (filePath) => {
-    return new Promise((resolve, reject) => {
-        const hash = crypto.createHash('sha256');
-        const stream = fs.createReadStream(filePath);
-        stream.on('data', (data) => hash.update(data));
-        stream.on('end', () => resolve(hash.digest('hex')));
-        stream.on('error', (err) => reject(err));
-    });
-};
 
 // @desc    Upload evidence file
 // @route   POST /api/evidence
@@ -33,9 +21,6 @@ exports.uploadEvidence = async (req, res) => {
             return res.status(404).json({ message: 'Case not found' });
         }
 
-        // Calculate Hash
-        const fileHash = await calculateHash(req.file.path);
-
         // Create Evidence Record
         const evidence = await Evidence.create({
             caseId,
@@ -44,7 +29,6 @@ exports.uploadEvidence = async (req, res) => {
             filePath: req.file.path,
             fileType: req.file.mimetype,
             fileSize: req.file.size,
-            hash: fileHash,
             description
         });
 

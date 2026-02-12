@@ -18,13 +18,13 @@ const Sidebar = () => {
     ];
 
     return (
-        <div className="h-screen w-64 bg-card border-r border-gray-800 flex flex-col fixed left-0 top-0">
+        <div className="h-screen w-60 bg-card border-r border-gray-800 flex flex-col fixed left-0 top-0 transition-all duration-300">
             {/* Logo Area */}
-            <div className="p-6 border-b border-gray-800 flex items-center space-x-3">
-                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+            <div className="p-6 border-b border-gray-800 flex items-center space-x-3 overflow-hidden">
+                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
                     <Shield className="w-5 h-5 text-white" />
                 </div>
-                <h1 className="text-xl font-bold text-white tracking-wider">SECURE<span className="text-blue-500">EVIDENCE</span></h1>
+                <h1 className="text-base font-bold text-white tracking-wider whitespace-nowrap">SECURE<span className="text-blue-500">EVIDENCE</span></h1>
             </div>
 
             {/* Navigation */}

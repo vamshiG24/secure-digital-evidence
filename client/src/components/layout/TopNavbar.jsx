@@ -15,7 +15,7 @@ const TopNavbar = () => {
     };
 
     return (
-        <div className="h-16 bg-card border-b border-gray-800 flex items-center justify-end px-8 sticky top-0 z-40">
+        <div className="h-16 bg-card border-b border-gray-800 flex items-center justify-end px-8 fixed top-0 right-0 left-60 z-40 transition-all duration-300">
             {/* Right Side Actions */}
             <div className="flex items-center space-x-6">
                 <div className="relative">
