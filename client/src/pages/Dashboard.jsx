@@ -4,7 +4,6 @@ import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { Plus, FolderOpen, AlertTriangle, CheckCircle, TrendingUp, Search, X } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 
 const Dashboard = () => {
     const [cases, setCases] = useState([]);
@@ -85,8 +84,8 @@ const Dashboard = () => {
         // Search by case ID or title
         if (searchQuery.trim()) {
             const query = searchQuery.toLowerCase();
-            filtered = filtered.filter(c => 
-                c._id.toLowerCase().includes(query) || 
+            filtered = filtered.filter(c =>
+                c._id.toLowerCase().includes(query) ||
                 c.title.toLowerCase().includes(query)
             );
         }
@@ -148,11 +147,35 @@ const Dashboard = () => {
         }
     };
 
-    const pieData = [
-        { name: 'Open', value: stats.open, color: '#facc15' },
-        { name: 'In Progress', value: stats.inProgress, color: '#3b82f6' },
-        { name: 'Closed', value: stats.closed, color: '#22c55e' },
-    ];
+    const getTimeAgo = (date) => {
+        const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+
+        let interval = seconds / 31536000;
+        if (interval > 1) return Math.floor(interval) + 'y ago';
+
+        interval = seconds / 2592000;
+        if (interval > 1) return Math.floor(interval) + 'mo ago';
+
+        interval = seconds / 86400;
+        if (interval > 1) return Math.floor(interval) + 'd ago';
+
+        interval = seconds / 3600;
+        if (interval > 1) return Math.floor(interval) + 'h ago';
+
+        interval = seconds / 60;
+        if (interval > 1) return Math.floor(interval) + 'm ago';
+
+        return 'Just now';
+    };
+
+    const getActivityColor = (status) => {
+        switch (status) {
+            case 'Open': return 'bg-yellow-400 shadow-yellow-400/50';
+            case 'In Progress': return 'bg-blue-400 shadow-blue-400/50';
+            case 'Closed': return 'bg-green-400 shadow-green-400/50';
+            default: return 'bg-gray-400 shadow-gray-400/50';
+        }
+    };
 
     const hasActiveFilters = searchQuery || statusFilter !== 'all' || priorityFilter !== 'all';
 
@@ -162,6 +185,117 @@ const Dashboard = () => {
         </div>
     );
 
+    // Analyst View - Simple Cases List with Search Only
+    if (user?.role === 'analyst') {
+        return (
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.3 }}
+            >
+                <div className="mb-8">
+                    <h1 className="text-3xl font-bold text-white mb-2">Cases</h1>
+                    <p className="text-gray-400">View and search all cases</p>
+                </div>
+
+                {/* Search Bar */}
+                <div className="mb-6">
+                    <div className="relative">
+                        <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                        <input
+                            type="text"
+                            placeholder="Search by Case ID or Title..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full bg-gray-800 border border-gray-700 rounded-xl pl-12 pr-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        />
+                        {searchQuery && (
+                            <button
+                                onClick={() => setSearchQuery('')}
+                                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {/* Cases List */}
+                <div className="bg-card border border-gray-800 rounded-2xl overflow-hidden">
+                    <div className="p-6 border-b border-gray-800">
+                        <h2 className="text-xl font-bold text-white">
+                            All Cases {searchQuery && `(${filteredCases.length} results)`}
+                        </h2>
+                    </div>
+                    <div className="overflow-x-auto">
+                        {filteredCases.length === 0 ? (
+                            <div className="p-8 text-center text-gray-500">
+                                {searchQuery ? 'No cases match your search' : 'No cases found'}
+                            </div>
+                        ) : (
+                            <table className="w-full">
+                                <thead className="bg-gray-900/50 text-gray-400 text-xs uppercase">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left">Case</th>
+                                        <th className="px-6 py-3 text-left">Case ID</th>
+                                        <th className="px-6 py-3 text-left">Status</th>
+                                        <th className="px-6 py-3 text-left">Priority</th>
+                                        <th className="px-6 py-3 text-left">Assigned</th>
+                                        <th className="px-6 py-3 text-left">Created By</th>
+                                        <th className="px-6 py-3 text-left">Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-800">
+                                    {filteredCases.map((caseItem) => (
+                                        <tr
+                                            key={caseItem._id}
+                                            onClick={() => navigate(`/cases/${caseItem._id}`)}
+                                            className="hover:bg-gray-800/50 transition-colors cursor-pointer"
+                                        >
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center space-x-3">
+                                                    <div className="flex-1">
+                                                        <p className="text-white font-medium">{caseItem.title}</p>
+                                                        <p className="text-xs text-gray-500 mt-1 line-clamp-1">{caseItem.description}</p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="font-mono text-xs text-blue-400 bg-blue-400/10 px-2 py-1 rounded">
+                                                    #{caseItem._id.slice(-8)}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(caseItem.status)}`}>
+                                                    {caseItem.status}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getPriorityColor(caseItem.priority)}`}>
+                                                    {caseItem.priority}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-gray-400 text-sm">
+                                                {caseItem.assignedTo?.name || 'Unassigned'}
+                                            </td>
+                                            <td className="px-6 py-4 text-gray-400 text-sm">
+                                                {caseItem.createdBy?.name || 'Unknown'}
+                                            </td>
+                                            <td className="px-6 py-4 text-gray-400 text-sm">
+                                                {new Date(caseItem.createdAt).toLocaleDateString()}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                </div>
+            </motion.div>
+        );
+    }
+
+    // Admin & Investigator View - Full Dashboard
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -290,9 +424,9 @@ const Dashboard = () => {
             </div>
 
             {/* Cases Grid and Chart */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 {/* Cases List */}
-                <div className="lg:col-span-2 bg-card border border-gray-800 rounded-2xl overflow-hidden">
+                <div className="lg:col-span-3 bg-card border border-gray-800 rounded-2xl overflow-hidden">
                     <div className="p-6 border-b border-gray-800">
                         <h2 className="text-xl font-bold text-white">Recent Cases</h2>
                     </div>
@@ -306,6 +440,7 @@ const Dashboard = () => {
                                 <thead className="bg-gray-900/50 text-gray-400 text-xs uppercase">
                                     <tr>
                                         <th className="px-6 py-3 text-left">Case</th>
+                                        <th className="px-6 py-3 text-left">Case ID</th>
                                         <th className="px-6 py-3 text-left">Status</th>
                                         <th className="px-6 py-3 text-left">Priority</th>
                                         <th className="px-6 py-3 text-left">Assigned</th>
@@ -331,6 +466,11 @@ const Dashboard = () => {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
+                                                <span className="font-mono text-xs text-blue-400 bg-blue-400/10 px-2 py-1 rounded">
+                                                    #{caseItem._id.slice(-8)}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">
                                                 <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(caseItem.status)}`}>
                                                     {caseItem.status}
                                                 </span>
@@ -354,44 +494,57 @@ const Dashboard = () => {
                     </div>
                 </div>
 
-                {/* Chart */}
+                {/* Recent Activity Timeline */}
                 <div className="bg-card border border-gray-800 rounded-2xl p-6">
-                    <h2 className="text-xl font-bold text-white mb-6">Status Distribution</h2>
-                    <ResponsiveContainer width="100%" height={250}>
-                        <PieChart>
-                            <Pie
-                                data={pieData}
-                                cx="50%"
-                                cy="50%"
-                                innerRadius={60}
-                                outerRadius={90}
-                                paddingAngle={5}
-                                dataKey="value"
-                            >
-                                {pieData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.color} />
-                                ))}
-                            </Pie>
-                            <Tooltip
-                                contentStyle={{
-                                    backgroundColor: '#1e293b',
-                                    border: '1px solid #334155',
-                                    borderRadius: '8px',
-                                    color: '#fff'
-                                }}
-                            />
-                        </PieChart>
-                    </ResponsiveContainer>
-                    <div className="mt-6 space-y-2">
-                        {pieData.map((item, index) => (
-                            <div key={index} className="flex items-center justify-between">
-                                <div className="flex items-center space-x-2">
-                                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }}></div>
-                                    <span className="text-sm text-gray-400">{item.name}</span>
-                                </div>
-                                <span className="text-sm font-semibold text-white">{item.value}</span>
+                    <h2 className="text-xl font-bold text-white mb-6">Recent Activity</h2>
+                    <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
+                        {filteredCases.slice(0, 8).map((caseItem, index) => {
+                            const timeAgo = getTimeAgo(caseItem.createdAt);
+                            const statusColor = getActivityColor(caseItem.status);
+
+                            return (
+                                <motion.div
+                                    key={caseItem._id}
+                                    initial={{ opacity: 0, x: -20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: index * 0.05 }}
+                                    className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-800/30 transition-colors cursor-pointer"
+                                    onClick={() => navigate(`/cases/${caseItem._id}`)}
+                                >
+                                    <div className={`w-2 h-2 rounded-full mt-2 ${statusColor} shadow-lg`}></div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-white truncate">
+                                                    {caseItem.title}
+                                                </p>
+                                                <p className="text-xs text-gray-400 mt-0.5">
+                                                    {caseItem.status === 'Open' && 'Case opened'}
+                                                    {caseItem.status === 'In Progress' && 'Investigation ongoing'}
+                                                    {caseItem.status === 'Closed' && 'Case closed'}
+                                                    {caseItem.assignedTo && ` • Assigned to ${caseItem.assignedTo.name}`}
+                                                </p>
+                                            </div>
+                                            <span className="text-xs text-gray-500 whitespace-nowrap">{timeAgo}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 mt-2">
+                                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${getStatusColor(caseItem.status)}`}>
+                                                {caseItem.status}
+                                            </span>
+                                            <span className={`text-xs font-medium ${getPriorityColor(caseItem.priority)}`}>
+                                                {caseItem.priority}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            );
+                        })}
+
+                        {filteredCases.length === 0 && (
+                            <div className="text-center py-8 text-gray-500">
+                                <p>No recent activity</p>
                             </div>
-                        ))}
+                        )}
                     </div>
                 </div>
             </div>

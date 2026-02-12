@@ -8,17 +8,21 @@ exports.getCases = async (req, res) => {
     try {
         let query = {};
 
-        // If analyst, only show assigned, unless implemented otherwise. 
-        // Requirement says "Investigators can view assigned cases", implying restriction?
-        // Let's stick to: Admin sees all. Investigator sees all or assigned?
-        // "Investigators can view assigned cases" -> likely restricts them.
-        // Let's assume Admin sees all, Investigator/Analyst sees assigned + maybe created by them?
+        // Access Control Logic:
+        // 1. Analyst: Can see ALL cases to track everything.
+        // 2. Admin: Can see cases they created (or assigned to them).
+        // 3. Investigator: Can see cases assigned to them or created by them.
 
-        // Refining role logic based on typical strict layout:
-        if (req.user.role === 'admin') {
-            query = {};
+        if (req.user.role === 'analyst') {
+            query = {}; // Analyst sees everything
         } else {
-            query = { $or: [{ assignedTo: req.user.id }, { createdBy: req.user.id }] };
+            // Admin & Investigator see only their related cases
+            query = {
+                $or: [
+                    { assignedTo: req.user.id },
+                    { createdBy: req.user.id }
+                ]
+            };
         }
 
         const cases = await Case.find(query)

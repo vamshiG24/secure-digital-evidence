@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const AuditLog = require('../models/AuditLog');
 const jwt = require('jsonwebtoken');
 
 // Generate JWT
@@ -29,6 +30,15 @@ exports.registerUser = async (req, res) => {
         });
 
         if (user) {
+            // Audit Log
+            await AuditLog.create({
+                user: user._id,
+                action: 'USER_REGISTER',
+                details: `User registered: ${user.email} as ${user.role}`,
+                ipAddress: req.ip,
+                userAgent: req.get('User-Agent')
+            });
+
             res.status(201).json({
                 _id: user._id,
                 name: user.name,
@@ -54,6 +64,15 @@ exports.loginUser = async (req, res) => {
         const user = await User.findOne({ email });
 
         if (user && (await user.matchPassword(password))) {
+            // Audit Log
+            await AuditLog.create({
+                user: user._id,
+                action: 'USER_LOGIN',
+                details: `User logged in: ${user.email}`,
+                ipAddress: req.ip,
+                userAgent: req.get('User-Agent')
+            });
+
             res.json({
                 _id: user._id,
                 name: user.name,
