@@ -7,14 +7,29 @@ const Sidebar = () => {
     const { user, logout } = useAuth();
     const location = useLocation();
 
-    const navItems = [
-        { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-        { name: 'Cases', path: '/cases', icon: Briefcase }, // Assuming we'll have a dedicated cases list route or reuse dashboard
-        // Admin only
-        ...(user?.role === 'admin' ? [
-            { name: 'Create Case', path: '/create-case', icon: FileText },
-            { name: 'System Logs', path: '/logs', icon: Shield }
-        ] : []),
+    const navSections = [
+        {
+            title: 'Overview',
+            items: [
+                { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+            ]
+        },
+        {
+            title: 'Management',
+            items: [
+                { name: 'Cases', path: '/cases', icon: Briefcase }, // Link to cases list (or dashboard with filter)
+                ...(user?.role === 'admin' ? [
+                    { name: 'Create Case', path: '/create-case', icon: FileText }
+                ] : [])
+            ]
+        },
+        // Admin only system tools
+        ...(user?.role === 'admin' ? [{
+            title: 'System',
+            items: [
+                { name: 'System Logs', path: '/logs', icon: Shield }
+            ]
+        }] : [])
     ];
 
     return (
@@ -28,27 +43,33 @@ const Sidebar = () => {
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4 px-2">Menu</div>
-                {navItems.map((item) => {
-                    const Icon = item.icon;
-                    const isActive = location.pathname === item.path;
-                    return (
-                        <Link
-                            key={item.path}
-                            to={item.path}
-                            className={clsx(
-                                "flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 group",
-                                isActive
-                                    ? "bg-blue-600 text-white shadow-lg shadow-blue-900/20"
-                                    : "text-gray-400 hover:bg-gray-800 hover:text-white"
-                            )}
-                        >
-                            <Icon className={clsx("w-5 h-5 transition-transform group-hover:scale-110", isActive ? "text-white" : "text-gray-500 group-hover:text-white")} />
-                            <span className="font-medium">{item.name}</span>
-                        </Link>
-                    );
-                })}
+            <nav className="flex-1 p-4 space-y-6 overflow-y-auto">
+                {navSections.map((section, idx) => (
+                    <div key={idx}>
+                        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">{section.title}</div>
+                        <div className="space-y-1">
+                            {section.items.map((item) => {
+                                const Icon = item.icon;
+                                const isActive = location.pathname === item.path;
+                                return (
+                                    <Link
+                                        key={item.path}
+                                        to={item.path}
+                                        className={clsx(
+                                            "flex items-center space-x-3 px-4 py-2.5 rounded-xl transition-all duration-200 group",
+                                            isActive
+                                                ? "bg-blue-600 text-white shadow-lg shadow-blue-900/20"
+                                                : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                                        )}
+                                    >
+                                        <Icon className={clsx("w-5 h-5 transition-transform group-hover:scale-110", isActive ? "text-white" : "text-gray-500 group-hover:text-white")} />
+                                        <span className="font-medium text-sm">{item.name}</span>
+                                    </Link>
+                                );
+                            })}
+                        </div>
+                    </div>
+                ))}
             </nav>
 
             {/* User Profile & Logout */}

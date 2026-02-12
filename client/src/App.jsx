@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import CreateCase from './pages/CreateCase';
 import CaseDetail from './pages/CaseDetail';
 import Logs from './pages/Logs';
+import CasesList from './pages/CasesList';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/layout/Layout';
 
@@ -24,6 +25,7 @@ function App() {
               {/* Protected Routes with Layout */}
               <Route path="/" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
               <Route path="/create-case" element={<ProtectedRoute><Layout><CreateCase /></Layout></ProtectedRoute>} />
+              <Route path="/cases" element={<ProtectedRoute><Layout><CasesList /></Layout></ProtectedRoute>} />
               <Route path="/cases/:id" element={<ProtectedRoute><Layout><CaseDetail /></Layout></ProtectedRoute>} />
               <Route path="/logs" element={<ProtectedRoute><Layout><Logs /></Layout></ProtectedRoute>} />
 
