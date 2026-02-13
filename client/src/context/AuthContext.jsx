@@ -59,8 +59,18 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
     };
 
+    const updateUser = (userData) => {
+        setUser(userData);
+        // Optionally update token if returned, but usually token contains ID which doesn't change
+        // If token allows embedding name/role, we might need a new one. 
+        // The backend `updateUserProfile` returns a token, so let's update it.
+        if (userData.token) {
+            localStorage.setItem('token', userData.token);
+        }
+    };
+
     return (
-        <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+        <AuthContext.Provider value={{ user, login, register, logout, updateUser, loading }}>
             {children}
         </AuthContext.Provider>
     );
