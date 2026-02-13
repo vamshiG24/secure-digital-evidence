@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Settings, LogOut, LayoutDashboard, ChevronDown } from 'lucide-react';
+import { User, Settings, LogOut, LayoutDashboard, ChevronDown, Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import NotificationPanel from '../NotificationPanel';
@@ -15,12 +15,24 @@ const TopNavbar = () => {
     };
 
     return (
-        <div className="h-16 bg-card border-b border-gray-800 flex items-center justify-end px-8 fixed top-0 right-0 left-60 z-40 transition-all duration-300">
+        <div className={`h-16 bg-card border-b border-gray-800 flex items-center justify-end px-8 fixed top-0 right-0 ${user?.role === 'analyst' ? 'left-0' : 'left-60'} z-40 transition-all duration-300`}>
+            {/* Left Side - Logo for Analyst (since sidebar is hidden) */}
+            {user?.role === 'analyst' && (
+                <div className="flex items-center space-x-2 mr-auto">
+                    <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                        <Shield className="w-5 h-5 text-white" />
+                    </div>
+                    <h1 className="text-base font-bold text-white tracking-wider whitespace-nowrap">SECURE<span className="text-blue-500">EVIDENCE</span></h1>
+                </div>
+            )}
+
             {/* Right Side Actions */}
             <div className="flex items-center space-x-6">
-                <div className="relative">
-                    <NotificationPanel />
-                </div>
+                {user?.role !== 'analyst' && (
+                    <div className="relative">
+                        <NotificationPanel />
+                    </div>
+                )}
 
                 <div className="h-8 w-[1px] bg-gray-700"></div>
 

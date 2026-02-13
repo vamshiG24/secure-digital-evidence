@@ -32,6 +32,8 @@ const Sidebar = () => {
         }] : [])
     ];
 
+    if (user?.role === 'analyst') return null;
+
     return (
         <div className="h-screen w-60 bg-card border-r border-gray-800 flex flex-col fixed left-0 top-0 transition-all duration-300">
             {/* Logo Area */}

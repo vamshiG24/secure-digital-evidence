@@ -1,13 +1,15 @@
+import { useAuth } from '../../context/AuthContext';
 import Sidebar from './Sidebar';
 import TopNavbar from './TopNavbar';
 
 const Layout = ({ children }) => {
+    const { user } = useAuth();
     return (
         <div className="flex min-h-screen bg-background text-text font-sans selection:bg-blue-500/30">
             {/* Sidebar */}
             <Sidebar />
 
-            <div className="flex-1 flex flex-col ml-60 pt-16 transition-all duration-300">
+            <div className={`flex-1 flex flex-col ${user?.role === 'analyst' ? 'ml-0' : 'ml-60'} pt-16 transition-all duration-300`}>
                 {/* Fixed Top Navbar */}
                 <TopNavbar />
 
