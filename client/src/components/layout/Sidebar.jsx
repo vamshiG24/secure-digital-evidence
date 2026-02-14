@@ -1,9 +1,9 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Briefcase, FileText, Upload, Shield, Bell, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, Briefcase, FileText, Upload, Shield, Bell, Settings, LogOut, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import clsx from 'clsx';
 
-const Sidebar = () => {
+const Sidebar = ({ isOpen, onClose }) => {
     const { user, logout } = useAuth();
     const location = useLocation();
 
@@ -35,13 +35,25 @@ const Sidebar = () => {
     if (user?.role === 'analyst') return null;
 
     return (
-        <div className="h-screen w-60 bg-card border-r border-gray-800 flex flex-col fixed left-0 top-0 transition-all duration-300">
+        <div className={clsx(
+            "fixed inset-y-0 left-0 h-screen w-64 bg-card border-r border-gray-800 flex flex-col z-50 transition-transform duration-300 transform",
+            // Mobile: translate based on isOpen state
+            isOpen ? "translate-x-0" : "-translate-x-full",
+            // Desktop: always show (reset translate)
+            "lg:translate-x-0 lg:w-60"
+        )}>
             {/* Logo Area */}
-            <div className="p-6 border-b border-gray-800 flex items-center space-x-3 overflow-hidden">
-                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Shield className="w-5 h-5 text-white" />
+            <div className="p-6 border-b border-gray-800 flex items-center justify-between">
+                <div className="flex items-center space-x-3 overflow-hidden">
+                    <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Shield className="w-5 h-5 text-white" />
+                    </div>
+                    <h1 className="text-base font-bold text-white tracking-wider whitespace-nowrap">SECURE<span className="text-blue-500">EVIDENCE</span></h1>
                 </div>
-                <h1 className="text-base font-bold text-white tracking-wider whitespace-nowrap">SECURE<span className="text-blue-500">EVIDENCE</span></h1>
+                {/* Close Button (Mobile Only) */}
+                <button onClick={onClose} className="lg:hidden text-gray-400 hover:text-white">
+                    <X className="w-6 h-6" />
+                </button>
             </div>
 
             {/* Navigation */}
@@ -57,6 +69,7 @@ const Sidebar = () => {
                                     <Link
                                         key={item.path}
                                         to={item.path}
+                                        onClick={onClose} // Close sidebar on mobile when link is clicked
                                         className={clsx(
                                             "flex items-center space-x-3 px-4 py-2.5 rounded-xl transition-all duration-200 group",
                                             isActive
