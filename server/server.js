@@ -38,6 +38,7 @@ app.use('/api/cases', require('./routes/caseRoutes'));
 app.use('/api/evidence', require('./routes/evidenceRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/logs', require('./routes/auditRoutes'));
+// app.use('/api/ai', require('./routes/aiRoutes')); // AI Routes Removed
 
 // Socket.io Connection
 io.on('connection', (socket) => {
@@ -63,7 +64,7 @@ app.use((err, req, res, next) => {
     res.status(500).json({ message: 'Server Error', error: err.message });
 });
 
-const PORT = process.env.PORT || 8000;
+const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);

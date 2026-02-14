@@ -1,5 +1,6 @@
 import { FileText, Download, Lock, ChevronDown, ChevronUp } from 'lucide-react';
-import { useState } from 'react';
+import React, { useState } from 'react';
+import API_BASE_URL from '../config/api';
 
 const EvidenceList = ({ evidence }) => {
     const [expandedRow, setExpandedRow] = useState(null);
@@ -7,7 +8,7 @@ const EvidenceList = ({ evidence }) => {
     const handleDownload = async (id, fileName) => {
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch(`http://localhost:8000/api/evidence/${id}/download`, {
+            const response = await fetch(`${API_BASE_URL}/api/evidence/${id}/download`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
@@ -59,8 +60,8 @@ const EvidenceList = ({ evidence }) => {
                     </thead>
                     <tbody className="divide-y divide-gray-700">
                         {evidence.map((item) => (
-                            <>
-                                <tr key={item._id} className="hover:bg-gray-750 transition-colors">
+                            <React.Fragment key={item._id}>
+                                <tr className="hover:bg-gray-750 transition-colors">
                                     <td className="px-6 py-4 flex items-center text-white">
                                         <FileText className="mr-2 h-4 w-4 text-blue-400" />
                                         <span className="truncate max-w-xs" title={item.fileName}>
@@ -122,8 +123,8 @@ const EvidenceList = ({ evidence }) => {
                                     <td colSpan="6" className="px-6 overflow-hidden">
                                         <div
                                             className={`transition-all duration-300 ease-in-out ${expandedRow === item._id
-                                                    ? 'max-h-96 py-4 opacity-100'
-                                                    : 'max-h-0 py-0 opacity-0'
+                                                ? 'max-h-96 py-4 opacity-100'
+                                                : 'max-h-0 py-0 opacity-0'
                                                 }`}
                                         >
                                             {item.description && (
@@ -137,7 +138,7 @@ const EvidenceList = ({ evidence }) => {
                                         </div>
                                     </td>
                                 </tr>
-                            </>
+                            </React.Fragment>
                         ))}
                     </tbody>
                 </table>

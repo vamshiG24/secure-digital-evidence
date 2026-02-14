@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { User, Mail, Shield, Key, Edit, Save, Camera, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
+import API_BASE_URL from '../config/api';
 
 const Profile = () => {
     const { user, updateUser } = useAuth();
@@ -39,7 +40,7 @@ const Profile = () => {
                 email: formData.email
             };
 
-            const { data } = await axios.put('http://localhost:8000/api/users/profile', updateData, config);
+            const { data } = await axios.put(`${API_BASE_URL}/api/users/profile`, updateData, config);
             updateUser(data);
             setMessage('Profile updated successfully!');
             setIsEditing(false);
@@ -60,7 +61,7 @@ const Profile = () => {
             const token = localStorage.getItem('token');
             const config = { headers: { Authorization: `Bearer ${token}` } };
 
-            await axios.put('http://localhost:8000/api/users/profile', { password: formData.password }, config);
+            await axios.put(`${API_BASE_URL}/api/users/profile`, { password: formData.password }, config);
 
             setMessage('Password changed successfully!');
             setShowPasswordModal(false);
@@ -146,8 +147,8 @@ const Profile = () => {
                             <button
                                 onClick={() => isEditing ? handleUpdateProfile() : setIsEditing(true)}
                                 className={`text-sm flex items-center space-x-1 px-3 py-1.5 rounded-lg transition-colors ${isEditing
-                                        ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                                        : 'text-blue-400 hover:text-blue-300 hover:bg-blue-500/10'
+                                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                                    : 'text-blue-400 hover:text-blue-300 hover:bg-blue-500/10'
                                     }`}
                             >
                                 {isEditing ? <Save className="w-4 h-4" /> : <Edit className="w-4 h-4" />}

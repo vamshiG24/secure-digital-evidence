@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useSocket } from '../context/SocketContext';
 import { Bell, X } from 'lucide-react';
+import API_BASE_URL from '../config/api';
 
 const NotificationPanel = () => {
     const [notifications, setNotifications] = useState([]);
@@ -30,7 +31,7 @@ const NotificationPanel = () => {
         try {
             const token = localStorage.getItem('token');
             const config = { headers: { Authorization: `Bearer ${token}` } };
-            const { data } = await axios.get('http://localhost:8000/api/notifications', config);
+            const { data } = await axios.get(`${API_BASE_URL}/api/notifications`, config);
             setNotifications(data);
             setUnreadCount(data.filter(n => !n.isRead).length);
         } catch (error) {
@@ -42,7 +43,7 @@ const NotificationPanel = () => {
         try {
             const token = localStorage.getItem('token');
             const config = { headers: { Authorization: `Bearer ${token}` } };
-            await axios.put(`http://localhost:8000/api/notifications/${id}/read`, {}, config);
+            await axios.put(`${API_BASE_URL}/api/notifications/${id}/read`, {}, config);
 
             setNotifications(notifications.map(n =>
                 n._id === id ? { ...n, isRead: true } : n

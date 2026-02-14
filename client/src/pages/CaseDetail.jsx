@@ -6,6 +6,8 @@ import { ArrowLeft, Clock, User, BarChart, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import EvidenceUpload from '../components/EvidenceUpload';
 import EvidenceList from '../components/EvidenceList';
+// import SimilarCasesPanel from '../components/SimilarCasesPanel'; // REMOVED
+import API_BASE_URL from '../config/api';
 
 const CaseDetail = () => {
     const { id } = useParams();
@@ -13,6 +15,7 @@ const CaseDetail = () => {
     const [caseData, setCaseData] = useState(null);
     const [evidence, setEvidence] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [showUploadModal, setShowUploadModal] = useState(false);
 
     useEffect(() => {
         fetchCaseData();
@@ -24,7 +27,7 @@ const CaseDetail = () => {
         try {
             const token = localStorage.getItem('token');
             const config = { headers: { Authorization: `Bearer ${token}` } };
-            await axios.put(`http://localhost:8000/api/notifications/read-by-case/${id}`, {}, config);
+            await axios.put(`${API_BASE_URL}/api/notifications/read-by-case/${id}`, {}, config);
         } catch (error) {
             console.error('Error marking notifications as read:', error);
         }
@@ -34,7 +37,7 @@ const CaseDetail = () => {
         try {
             const token = localStorage.getItem('token');
             const config = { headers: { Authorization: `Bearer ${token}` } };
-            const { data } = await axios.get(`http://localhost:8000/api/cases/${id}`, config);
+            const { data } = await axios.get(`${API_BASE_URL}/api/cases/${id}`, config);
             setCaseData(data);
         } catch (error) {
             console.error('Error fetching case:', error);
@@ -45,7 +48,7 @@ const CaseDetail = () => {
         try {
             const token = localStorage.getItem('token');
             const config = { headers: { Authorization: `Bearer ${token}` } };
-            const { data } = await axios.get(`http://localhost:8000/api/evidence/${id}/list`, config);
+            const { data } = await axios.get(`${API_BASE_URL}/api/evidence/${id}/list`, config);
             setEvidence(data);
         } catch (error) {
             console.error('Error fetching evidence:', error);
@@ -59,7 +62,7 @@ const CaseDetail = () => {
         try {
             const token = localStorage.getItem('token');
             const config = { headers: { Authorization: `Bearer ${token}` } };
-            await axios.put(`http://localhost:8000/api/cases/${id}`, { status: 'Closed' }, config);
+            await axios.put(`${API_BASE_URL}/api/cases/${id}`, { status: 'Closed' }, config);
             fetchCaseData();
         } catch (error) {
             console.error('Error closing case:', error);
@@ -115,6 +118,19 @@ const CaseDetail = () => {
                                     {caseData.status}
                                 </span>
 
+                                {/* Upload Evidence Button - Top Right (Only for Investigators) */}
+                                {user?.role === 'investigator' && caseData.status !== 'Closed' && (
+                                    <button
+                                        onClick={() => setShowUploadModal(true)}
+                                        className="flex items-center gap-2 bg-blue-600/10 hover:bg-blue-600 text-blue-400 hover:text-white px-4 py-2 rounded-xl transition-all border border-blue-600/20 hover:border-blue-600 group"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                        </svg>
+                                        <span className="font-semibold">Upload Evidence</span>
+                                    </button>
+                                )}
+
                                 {/* Close/Reopen Button - Top Right */}
                                 {user?.role === 'admin' && (
                                     caseData.status !== 'Closed' ? (
@@ -132,7 +148,7 @@ const CaseDetail = () => {
                                                 try {
                                                     const token = localStorage.getItem('token');
                                                     const config = { headers: { Authorization: `Bearer ${token}` } };
-                                                    await axios.put(`http://localhost:8000/api/cases/${id}`, { status: 'Open' }, config);
+                                                    await axios.put(`${API_BASE_URL}/api/cases/${id}`, { status: 'Open' }, config);
                                                     fetchCaseData();
                                                 } catch (error) {
                                                     console.error('Error reopening case:', error);
@@ -192,6 +208,17 @@ const CaseDetail = () => {
                     </div>
                 </motion.div>
 
+                {/* AI Similar Cases Panel - REMOVED */}
+                {/* 
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.15 }}
+                >
+                    <SimilarCasesPanel caseId={id} />
+                </motion.div> 
+                */}
+
                 {/* Evidence Section - Full Width */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
@@ -201,14 +228,36 @@ const CaseDetail = () => {
                     <EvidenceList evidence={evidence} />
                 </motion.div>
 
-                {/* Evidence Upload - Full Width (Only for Investigators) */}
-                {user?.role === 'investigator' && caseData.status !== 'Closed' && (
+                {/* Evidence Upload Modal */}
+                {showUploadModal && user?.role === 'investigator' && (
                     <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.3 }}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                        onClick={() => setShowUploadModal(false)}
                     >
-                        <EvidenceUpload caseId={id} onUploadSuccess={fetchEvidence} />
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="max-w-2xl w-full"
+                        >
+                            <div className="relative">
+                                <button
+                                    onClick={() => setShowUploadModal(false)}
+                                    className="absolute -top-2 -right-2 z-10 bg-red-600 hover:bg-red-700 text-white rounded-full p-2 transition-colors"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                                <EvidenceUpload
+                                    caseId={id}
+                                    onUploadSuccess={() => {
+                                        fetchEvidence();
+                                        setShowUploadModal(false);
+                                    }}
+                                />
+                            </div>
+                        </motion.div>
                     </motion.div>
                 )}
             </div>

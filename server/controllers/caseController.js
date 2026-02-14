@@ -73,23 +73,34 @@ exports.createCase = async (req, res) => {
 
         // Notify Investigator if assigned
         if (assignedTo) {
-            const Notification = require('../models/Notification');
-            const io = req.app.get('socketio');
+            try {
+                const Notification = require('../models/Notification');
+                const io = req.app.get('socketio');
 
-            const notification = await Notification.create({
-                recipient: assignedTo,
-                message: `You have been assigned to case: ${title}`,
-                type: 'info',
-                link: `/cases/${caseItem._id}`
-            });
+                const notification = await Notification.create({
+                    recipient: assignedTo,
+                    message: `You have been assigned to case: ${title}`,
+                    type: 'info',
+                    link: `/cases/${caseItem._id}`,
+                    relatedLink: `/cases/${caseItem._id}` // Add this field as it is in the schema but was missing in the create call
+                });
 
-            // Emit to specific user room
-            io.to(assignedTo).emit('notification', notification);
+                // Emit to specific user room
+                if (io) {
+                    io.to(assignedTo).emit('notification', notification);
+                } else {
+                    console.warn("Socket.io instance not found in app settings.");
+                }
+            } catch (notifyError) {
+                console.error("Error creating notification or sending socket event:", notifyError);
+                // Do not fail the request if notification fails
+            }
         }
 
         res.status(201).json(caseItem);
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        console.error("Error in createCase:", error);
+        res.status(500).json({ message: error.message, stack: process.env.NODE_ENV === 'development' ? error.stack : undefined });
     }
 };
 

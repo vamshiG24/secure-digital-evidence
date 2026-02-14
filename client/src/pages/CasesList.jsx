@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, Filter, Plus, ChevronRight, AlertCircle, Clock, CheckCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { API_ENDPOINTS } from '../config/api';
 
 const CasesList = () => {
     const [cases, setCases] = useState([]);
@@ -21,7 +22,8 @@ const CasesList = () => {
         try {
             const token = localStorage.getItem('token');
             const config = { headers: { Authorization: `Bearer ${token}` } };
-            const { data } = await axios.get('http://localhost:8000/api/cases', config);
+            // Use API_ENDPOINTS.CASES instead of hardcoded URL
+            const { data } = await axios.get(API_ENDPOINTS.CASES, config);
             setCases(data);
             setLoading(false);
         } catch (error) {
@@ -154,8 +156,8 @@ const CasesList = () => {
                                     <td className="px-6 py-4">
                                         <div className="flex items-center space-x-2">
                                             <span className={`h-2.5 w-2.5 rounded-full ${caseItem.priority === 'Critical' ? 'bg-red-500 shadow-red-500/50 shadow-sm' :
-                                                    caseItem.priority === 'High' ? 'bg-orange-500' :
-                                                        caseItem.priority === 'Medium' ? 'bg-yellow-500' : 'bg-blue-500'
+                                                caseItem.priority === 'High' ? 'bg-orange-500' :
+                                                    caseItem.priority === 'Medium' ? 'bg-yellow-500' : 'bg-blue-500'
                                                 }`}></span>
                                             <span className={`text-sm font-medium ${getPriorityColor(caseItem.priority)}`}>
                                                 {caseItem.priority}
