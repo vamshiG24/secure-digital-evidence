@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { User, Settings, LogOut, LayoutDashboard, ChevronDown, Shield } from 'lucide-react';
+import { User, Settings, LogOut, LayoutDashboard, ChevronDown, Shield, Menu } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import NotificationPanel from '../NotificationPanel';
 
-const TopNavbar = () => {
+const TopNavbar = ({ onToggleSidebar }) => {
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const { user, logout } = useAuth();
     const navigate = useNavigate();
@@ -15,19 +15,30 @@ const TopNavbar = () => {
     };
 
     return (
-        <div className={`h-16 bg-card border-b border-gray-800 flex items-center justify-end px-8 fixed top-0 right-0 ${user?.role === 'analyst' ? 'left-0' : 'left-60'} z-40 transition-all duration-300`}>
-            {/* Left Side - Logo for Analyst (since sidebar is hidden) */}
-            {user?.role === 'analyst' && (
-                <div className="flex items-center space-x-2 mr-auto">
+        <div className={`h-16 bg-card border-b border-gray-800 flex items-center justify-between px-4 lg:px-8 fixed top-0 right-0 left-0 ${user?.role === 'analyst' ? 'lg:left-0' : 'lg:left-60'} z-30 transition-all duration-300`}>
+
+            <div className="flex items-center gap-4">
+                {/* Mobile Menu Button */}
+                {user?.role !== 'analyst' && (
+                    <button
+                        onClick={onToggleSidebar}
+                        className="lg:hidden text-gray-400 hover:text-white p-1"
+                    >
+                        <Menu className="w-6 h-6" />
+                    </button>
+                )}
+
+                {/* Left Side - Logo for Analyst (since sidebar is hidden) or Mobile Logo */}
+                <div className={`flex items-center space-x-2 ${user?.role !== 'analyst' ? 'lg:hidden' : ''}`}>
                     <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                         <Shield className="w-5 h-5 text-white" />
                     </div>
-                    <h1 className="text-base font-bold text-white tracking-wider whitespace-nowrap">SECURE<span className="text-blue-500">EVIDENCE</span></h1>
+                    <span className="text-base font-bold text-white tracking-wider whitespace-nowrap hidden sm:inline">SECURE<span className="text-blue-500">EVIDENCE</span></span>
                 </div>
-            )}
+            </div>
 
             {/* Right Side Actions */}
-            <div className="flex items-center space-x-6">
+            <div className="flex items-center space-x-4 lg:space-x-6">
                 {user?.role !== 'analyst' && (
                     <div className="relative">
                         <NotificationPanel />
@@ -40,7 +51,7 @@ const TopNavbar = () => {
                 <div className="relative">
                     <button
                         onClick={() => setIsProfileOpen(!isProfileOpen)}
-                        className="flex items-center space-x-3 hover:bg-gray-800/50 px-3 py-2 rounded-lg transition-colors"
+                        className="flex items-center space-x-3 hover:bg-gray-800/50 px-2 lg:px-3 py-2 rounded-lg transition-colors"
                     >
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-blue-500 flex items-center justify-center shadow-lg">
                             <span className="text-white font-semibold text-sm">
