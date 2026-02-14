@@ -12,7 +12,7 @@ const auditLog = require('../middlewares/auditMiddleware');
 
 router.route('/')
     .get(protect, getCases)
-    .post(protect, authorize('admin'), auditLog('Create Case'), createCase);
+    .post(protect, authorize('admin', 'investigator'), auditLog('Create Case'), createCase);
 
 router.route('/:id')
     .get(protect, getCase)

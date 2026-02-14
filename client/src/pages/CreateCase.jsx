@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { ArrowLeft } from 'lucide-react';
+import API_BASE_URL from '../config/api';
 
 const CreateCase = () => {
     const [formData, setFormData] = useState({
@@ -21,7 +22,7 @@ const CreateCase = () => {
         try {
             const token = localStorage.getItem('token');
             const config = { headers: { Authorization: `Bearer ${token}` } };
-            const { data } = await axios.get('http://localhost:8000/api/users', config);
+            const { data } = await axios.get(`${API_BASE_URL}/api/users`, config);
             // Filter only investigators (exclude admin and analyst)
             setUsers(data.filter(u => u.role !== 'admin' && u.role !== 'analyst'));
         } catch (error) {
@@ -43,7 +44,7 @@ const CreateCase = () => {
             const dataToSend = { ...formData };
             if (!dataToSend.assignedTo) delete dataToSend.assignedTo;
 
-            await axios.post('http://localhost:8000/api/cases', dataToSend, config);
+            await axios.post(`${API_BASE_URL}/api/cases`, dataToSend, config);
             navigate('/');
         } catch (error) {
             console.error('Error creating case:', error);
@@ -72,6 +73,8 @@ const CreateCase = () => {
                             name="title"
                             value={formData.title}
                             onChange={handleChange}
+                            readOnly={false}
+                            autoComplete="off"
                             className="w-full bg-gray-900 border border-gray-700 rounded px-4 py-2 text-white focus:outline-none focus:border-blue-500"
                             required
                         />
@@ -83,6 +86,7 @@ const CreateCase = () => {
                             name="description"
                             value={formData.description}
                             onChange={handleChange}
+                            readOnly={false}
                             rows="4"
                             className="w-full bg-gray-900 border border-gray-700 rounded px-4 py-2 text-white focus:outline-none focus:border-blue-500"
                             required

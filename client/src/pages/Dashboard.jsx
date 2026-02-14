@@ -4,6 +4,19 @@ import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { Plus, FolderOpen, AlertTriangle, CheckCircle, TrendingUp, Search, X } from 'lucide-react';
 import { motion } from 'framer-motion';
+// import AISearchBar from '../components/AISearchBar'; // REMOVED
+
+// const [aiSearchResults, setAiSearchResults] = useState(null); // REMOVED
+
+/* REMOVED AI SEARCH HANDLER
+const handleAISearchResults = (results) => {
+    setAiSearchResults(results);
+};
+*/
+
+// In render:
+{/* <AISearchBar onResults={handleAISearchResults} /> // REMOVED */ }
+import API_BASE_URL from '../config/api';
 
 const Dashboard = () => {
     const [cases, setCases] = useState([]);
@@ -13,6 +26,7 @@ const Dashboard = () => {
     const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
     const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'all');
     const [priorityFilter, setPriorityFilter] = useState(searchParams.get('priority') || 'all');
+    const [isAISearch, setIsAISearch] = useState(false);
     const [stats, setStats] = useState({
         total: 0,
         open: 0,
@@ -51,7 +65,7 @@ const Dashboard = () => {
         try {
             const token = localStorage.getItem('token');
             const config = { headers: { Authorization: `Bearer ${token}` } };
-            const { data } = await axios.get('http://localhost:8000/api/cases', config);
+            const { data } = await axios.get(`${API_BASE_URL}/api/cases`, config);
             setCases(data);
             calculateStats(data);
         } catch (error) {
@@ -63,7 +77,7 @@ const Dashboard = () => {
         try {
             const token = localStorage.getItem('token');
             const config = { headers: { Authorization: `Bearer ${token}` } };
-            const { data } = await axios.get('http://localhost:8000/api/notifications', config);
+            const { data } = await axios.get(`${API_BASE_URL}/api/notifications`, config);
 
             const ids = new Set();
             data.forEach(notif => {
@@ -177,7 +191,16 @@ const Dashboard = () => {
         }
     };
 
-    const hasActiveFilters = searchQuery || statusFilter !== 'all' || priorityFilter !== 'all';
+    const handleAISearchResults = (results) => {
+        setFilteredCases(results);
+        setIsAISearch(true);
+        // Clear manual filters when using AI search
+        setSearchQuery('');
+        setStatusFilter('all');
+        setPriorityFilter('all');
+    };
+
+    const hasActiveFilters = searchQuery || statusFilter !== 'all' || priorityFilter !== 'all' || isAISearch;
 
     if (loading) return (
         <div className="flex items-center justify-center h-96">
@@ -402,8 +425,17 @@ const Dashboard = () => {
                 })}
             </div>
 
-            {/* Search and Filters */}
+            {/* AI Smart Search - REMOVED */}
+            {/* 
+            <div className="bg-card border border-gray-800 rounded-2xl p-6 mb-6">
+                <h2 className="text-lg font-bold text-white mb-4">🤖 AI-Powered Search</h2>
+                <AISearchBar onResults={handleAISearchResults} />
+            </div> 
+            */}
+
+            {/* Manual Search and Filters */}
             <div className="bg-card border border-gray-800 rounded-2xl p-6">
+                <h3 className="text-sm font-medium text-gray-400 mb-4">Or use manual filters:</h3>
                 <div className="flex flex-col lg:flex-row gap-4">
                     {/* Search */}
                     <div className="flex-1">
@@ -415,6 +447,7 @@ const Dashboard = () => {
                                 value={searchQuery}
                                 onChange={(e) => {
                                     setSearchQuery(e.target.value);
+                                    setIsAISearch(false);
                                     updateURLParams({ search: e.target.value });
                                 }}
                                 className="w-full bg-gray-900/50 border border-gray-700 rounded-lg pl-11 pr-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"

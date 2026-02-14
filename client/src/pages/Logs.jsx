@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { ArrowLeft, ShieldAlert } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import API_BASE_URL from '../config/api';
 
 const Logs = () => {
     const [logs, setLogs] = useState([]);
@@ -16,7 +17,7 @@ const Logs = () => {
         try {
             const token = localStorage.getItem('token');
             const config = { headers: { Authorization: `Bearer ${token}` } };
-            const { data } = await axios.get('http://localhost:8000/api/logs', config);
+            const { data } = await axios.get(`${API_BASE_URL}/api/logs`, config);
             setLogs(data);
             setLoading(false);
         } catch (error) {

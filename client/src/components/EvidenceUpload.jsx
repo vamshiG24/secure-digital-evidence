@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import axios from 'axios';
 import { Upload, X } from 'lucide-react';
+import API_BASE_URL from '../config/api';
 
 const EvidenceUpload = ({ caseId, onUploadSuccess }) => {
     const [file, setFile] = useState(null);
@@ -35,7 +36,7 @@ const EvidenceUpload = ({ caseId, onUploadSuccess }) => {
                 }
             };
 
-            await axios.post('http://localhost:8000/api/evidence', formData, config);
+            await axios.post(`${API_BASE_URL}/api/evidence`, formData, config);
             setFile(null);
             setDescription('');
             setUploading(false);

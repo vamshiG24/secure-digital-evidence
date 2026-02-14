@@ -31,10 +31,19 @@ const caseSchema = new mongoose.Schema({
         ref: 'User',
         required: true
     },
+    embedding: {
+        type: [Number],
+        required: false,
+        select: false // Don't return by default for performance
+    },
     createdAt: {
         type: Date,
         default: Date.now
     }
 });
+
+// Pre-save hook to generate embeddings
+// Pre-save hook to generate embeddings - REMOVED AS PER USER REQUEST
+// caseSchema.pre('save', async function (next) { ... });
 
 module.exports = mongoose.model('Case', caseSchema);
