@@ -25,8 +25,16 @@ const allowedOrigins = [
 
 // Add production frontend URL if set in environment
 if (process.env.FRONTEND_URL) {
-    allowedOrigins.push(process.env.FRONTEND_URL);
+    // Trim to remove accidental spaces/newlines which break CORS
+    const productionUrl = process.env.FRONTEND_URL.trim();
+    allowedOrigins.push(productionUrl);
+    // Also add the non-www or www version to be safe
+    if (productionUrl.includes('www.')) {
+        allowedOrigins.push(productionUrl.replace('www.', ''));
+    }
 }
+
+console.log("Allowed Origins for CORS:", allowedOrigins);
 
 const io = new Server(server, {
     cors: {
@@ -39,7 +47,16 @@ const io = new Server(server, {
 // Middleware
 app.use(express.json());
 app.use(cors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.indexOf(origin) === -1) {
+            console.log("BLOCKED BY CORS -> Origin:", origin); // Log the blocked origin
+            var msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+            return callback(new Error(msg), false);
+        }
+        return callback(null, true);
+    },
     credentials: true
 }));
 app.use(helmet());
