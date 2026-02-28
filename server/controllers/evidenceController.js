@@ -1,7 +1,6 @@
 const Evidence = require('../models/Evidence');
 const Case = require('../models/Case');
-const path = require('path');
-const fs = require('fs');
+const cloudinary = require('cloudinary').v2;
 
 // @desc    Upload evidence file
 // @route   POST /api/evidence
@@ -17,7 +16,9 @@ exports.uploadEvidence = async (req, res) => {
         const caseItem = await Case.findById(caseId);
         if (!caseItem) {
             // Clean up uploaded file if case not found
-            fs.unlinkSync(req.file.path);
+            if (req.file && req.file.filename) {
+                await cloudinary.uploader.destroy(req.file.filename);
+            }
             return res.status(404).json({ message: 'Case not found' });
         }
 
@@ -28,7 +29,7 @@ exports.uploadEvidence = async (req, res) => {
             fileName: req.file.originalname,
             filePath: req.file.path,
             fileType: req.file.mimetype,
-            fileSize: req.file.size,
+            fileSize: req.file.size || 0,
             description
         });
 
@@ -68,7 +69,9 @@ exports.uploadEvidence = async (req, res) => {
 
         res.status(201).json(evidence);
     } catch (error) {
-        if (req.file) fs.unlinkSync(req.file.path); // Cleanup on error
+        if (req.file && req.file.filename) {
+            await cloudinary.uploader.destroy(req.file.filename); // Cleanup on error
+        }
         res.status(500).json({ message: error.message });
     }
 };
@@ -96,12 +99,8 @@ exports.downloadEvidence = async (req, res) => {
             return res.status(404).json({ message: 'Evidence not found' });
         }
 
-        // Verify file exists
-        if (!fs.existsSync(evidence.filePath)) {
-            return res.status(404).json({ message: 'File not found on server' });
-        }
-
-        res.download(evidence.filePath, evidence.fileName);
+        // Redirect to Cloudinary URL
+        res.redirect(evidence.filePath);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
