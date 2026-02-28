@@ -1,25 +1,25 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const path = require('path');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const cloudinary = require('cloudinary').v2;
 const { uploadEvidence, getCaseEvidence, downloadEvidence } = require('../controllers/evidenceController');
 const { protect } = require('../middlewares/authMiddleware');
 
-// Multer Storage Configuration
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, 'uploads/'); // Correct path relative to server root
-    },
-    filename: function (req, file, cb) {
-        cb(null, `${Date.now()}-${file.originalname}`);
-    }
+// Configure Cloudinary
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// File Filter (Optional: restrict types)
-const fileFilter = (req, file, cb) => {
-    // Accept all for now, or restrict to detailed types
-    cb(null, true);
-};
+const storage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: {
+        folder: 'secure-digital-evidence',
+        resource_type: 'auto', // Allows uploading all file types (images, pdfs, etc.)
+    },
+});
 
 const upload = multer({
     storage: storage,
