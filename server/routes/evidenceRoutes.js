@@ -1,35 +1,26 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
-const cloudinary = require('cloudinary').v2;
-const { uploadEvidence, getCaseEvidence, downloadEvidence } = require('../controllers/evidenceController');
+const { 
+    uploadEvidence, 
+    getCaseEvidence, 
+    downloadEvidence,
+    verifyEvidence,
+    simulateTampering
+} = require('../controllers/evidenceController');
 const { protect } = require('../middlewares/authMiddleware');
+const auditLog = require('../middlewares/auditMiddleware');
 
-// Configure Cloudinary
-cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET
-});
-
-const storage = new CloudinaryStorage({
-    cloudinary: cloudinary,
-    params: {
-        folder: 'secure-digital-evidence',
-        resource_type: 'auto', // Allows uploading all file types (images, pdfs, etc.)
-    },
-});
-
+// Use memory storage so buffer is available for SHA-256 hashing before Cloudinary upload
 const upload = multer({
-    storage: storage,
+    storage: multer.memoryStorage(),
     limits: { fileSize: 1024 * 1024 * 50 } // 50MB limit
 });
-
-const auditLog = require('../middlewares/auditMiddleware');
 
 router.post('/', protect, upload.single('file'), auditLog('Upload Evidence'), uploadEvidence);
 router.get('/:caseId/list', protect, getCaseEvidence);
 router.get('/:id/download', protect, auditLog('Download Evidence'), downloadEvidence);
+router.get('/:id/verify', protect, auditLog('Verify Evidence Integrity'), verifyEvidence);
+router.put('/:id/simulate-tamper', protect, auditLog('Simulate Evidence Tampering'), simulateTampering);
 
 module.exports = router;

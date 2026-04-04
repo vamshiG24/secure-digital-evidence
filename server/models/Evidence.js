@@ -30,6 +30,10 @@ const evidenceSchema = new mongoose.Schema({
     description: {
         type: String
     },
+    fileHash: {
+        type: String, // SHA-256 hex digest for tamper detection
+        required: true
+    },
     uploadedAt: {
         type: Date,
         default: Date.now

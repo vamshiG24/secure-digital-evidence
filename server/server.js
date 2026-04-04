@@ -13,6 +13,10 @@ const connectDB = require('./config/db');
 connectDB();
 
 const app = express();
+
+// Trust reverse proxy (e.g. Vercel, Render, Nginx) so req.ip gets the real user IP
+app.set('trust proxy', true);
+
 const server = http.createServer(app);
 
 // Socket.io Setup
@@ -71,7 +75,7 @@ app.use('/api/cases', require('./routes/caseRoutes'));
 app.use('/api/evidence', require('./routes/evidenceRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/logs', require('./routes/auditRoutes'));
-// app.use('/api/ai', require('./routes/aiRoutes')); // AI Routes Removed
+
 
 // Socket.io Connection
 io.on('connection', (socket) => {
