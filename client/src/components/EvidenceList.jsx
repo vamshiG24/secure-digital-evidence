@@ -1,9 +1,69 @@
-import { FileText, Download, Lock, ChevronDown, ChevronUp } from 'lucide-react';
+import { FileText, Download, Lock, ChevronDown, ChevronUp, CheckCircle, AlertTriangle, RefreshCw, Bug } from 'lucide-react';
 import React, { useState } from 'react';
 import API_BASE_URL from '../config/api';
 
 const EvidenceList = ({ evidence }) => {
     const [expandedRow, setExpandedRow] = useState(null);
+    const [verificationStatus, setVerificationStatus] = useState({});
+
+    const handleVerify = async (id) => {
+        setVerificationStatus(prev => ({ ...prev, [id]: { status: 'loading' } }));
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_BASE_URL}/api/evidence/${id}/verify`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await response.json();
+            
+            if (response.ok) {
+                setVerificationStatus(prev => ({ 
+                    ...prev, 
+                    [id]: { 
+                        status: data.verified ? 'verified' : 'tampered',
+                        message: data.message
+                    } 
+                }));
+            } else {
+                setVerificationStatus(prev => ({ 
+                    ...prev, 
+                    [id]: { status: 'error', message: data.message || 'Verification failed' } 
+                }));
+            }
+        } catch (error) {
+            setVerificationStatus(prev => ({ 
+                ...prev, 
+                [id]: { status: 'error', message: 'Network error during verification' } 
+            }));
+        }
+    };
+
+    const handleSimulateTamper = async (id) => {
+        if (!window.confirm("Simulate tampering? This will irrevocably alter the stored hash for this file.")) return;
+        
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_BASE_URL}/api/evidence/${id}/simulate-tamper`, {
+                method: 'PUT',
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await response.json();
+            
+            if (response.ok) {
+                alert(data.message);
+                // Clear any existing verification status for this so user has to re-verify
+                setVerificationStatus(prev => {
+                    const next = { ...prev };
+                    delete next[id];
+                    return next;
+                });
+            } else {
+                alert('Simulation failed: ' + data.message);
+            }
+        } catch (error) {
+            console.error('Tamper simulation error:', error);
+            alert('Failed to simulate tampering');
+        }
+    };
 
     const handleDownload = async (id, fileName) => {
         try {
@@ -104,13 +164,39 @@ const EvidenceList = ({ evidence }) => {
                                             })}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-6 py-4 flex gap-4 items-center">
                                         <button
                                             onClick={() => handleDownload(item._id, item.fileName)}
                                             className="text-blue-400 hover:text-blue-300 transition-colors"
                                             title="Download Secure File"
                                         >
                                             <Download className="h-5 w-5" />
+                                        </button>
+
+                                        <button
+                                            onClick={() => handleVerify(item._id)}
+                                            disabled={verificationStatus[item._id]?.status === 'loading'}
+                                            className="text-gray-400 hover:text-white transition-colors disabled:opacity-50 relative group"
+                                            title="Verify File Integrity"
+                                        >
+                                            {verificationStatus[item._id]?.status === 'loading' ? (
+                                                <RefreshCw className="h-5 w-5 animate-spin text-blue-400" />
+                                            ) : verificationStatus[item._id]?.status === 'verified' ? (
+                                                <CheckCircle className="h-5 w-5 text-green-500" />
+                                            ) : verificationStatus[item._id]?.status === 'tampered' ? (
+                                                <AlertTriangle className="h-5 w-5 text-red-500 animate-pulse" />
+                                            ) : (
+                                                <CheckCircle className="h-5 w-5" />
+                                            )}
+                                        </button>
+
+                                        {/* Simulate Tamper Button - Only for Student Project Demo */}
+                                        <button
+                                            onClick={() => handleSimulateTamper(item._id)}
+                                            className="text-red-900 hover:text-red-500 transition-colors"
+                                            title="Simulate Tampering (Demo purposes)"
+                                        >
+                                            <Bug className="h-5 w-5" />
                                         </button>
                                     </td>
                                 </tr>

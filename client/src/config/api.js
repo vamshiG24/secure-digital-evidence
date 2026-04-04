@@ -16,6 +16,8 @@ export const API_ENDPOINTS = {
     EVIDENCE: `${API_BASE_URL}/api/evidence`,
     EVIDENCE_LIST: (caseId) => `${API_BASE_URL}/api/evidence/${caseId}/list`,
     EVIDENCE_DOWNLOAD: (id) => `${API_BASE_URL}/api/evidence/${id}/download`,
+    EVIDENCE_VERIFY: (id) => `${API_BASE_URL}/api/evidence/${id}/verify`,
+    EVIDENCE_SIMULATE_TAMPER: (id) => `${API_BASE_URL}/api/evidence/${id}/simulate-tamper`,
 
     // Notifications
     NOTIFICATIONS: `${API_BASE_URL}/api/notifications`,
