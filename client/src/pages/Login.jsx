@@ -7,9 +7,11 @@ import { motion } from 'framer-motion';
 const Login = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [requires2FA, setRequires2FA] = useState(false);
+    const [otpCode, setOtpCode] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    const { login } = useAuth();
+    const { login, verifyOTP } = useAuth();
     const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
@@ -17,6 +19,23 @@ const Login = () => {
         setError('');
         setLoading(true);
         const result = await login(email, password);
+        setLoading(false);
+        if (result.success) {
+            if (result.requires2FA) {
+                setRequires2FA(true);
+            } else {
+                navigate('/');
+            }
+        } else {
+            setError(result.message);
+        }
+    };
+
+    const handleOTPSubmit = async (e) => {
+        e.preventDefault();
+        setError('');
+        setLoading(true);
+        const result = await verifyOTP(email, otpCode);
         setLoading(false);
         if (result.success) {
             navigate('/');
@@ -49,66 +68,133 @@ const Login = () => {
 
                 {/* Login Card */}
                 <div className="bg-card/50 backdrop-blur-xl border border-gray-800 rounded-2xl p-8 shadow-2xl">
-                    <h2 className="text-2xl font-bold text-white mb-6">System Access</h2>
+                    {!requires2FA ? (
+                        <>
+                            <h2 className="text-2xl font-bold text-white mb-6">System Access</h2>
 
-                    {error && (
-                        <motion.div
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            className="bg-red-500/10 border border-red-500/50 text-red-400 p-3 rounded-lg mb-6 text-sm"
-                        >
-                            {error}
-                        </motion.div>
+                            {error && (
+                                <motion.div
+                                    initial={{ opacity: 0, x: -20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    className="bg-red-500/10 border border-red-500/50 text-red-400 p-3 rounded-lg mb-6 text-sm"
+                                >
+                                    {error}
+                                </motion.div>
+                            )}
+
+                            <form onSubmit={handleSubmit} className="space-y-5">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-400 mb-2">Email Address</label>
+                                    <div className="relative">
+                                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />
+                                        <input
+                                            type="email"
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            className="w-full bg-gray-900/50 border border-gray-700 rounded-lg pl-11 pr-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                                            placeholder="Enter your email"
+                                            required
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-400 mb-2">Password</label>
+                                    <div className="relative">
+                                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />
+                                        <input
+                                            type="password"
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            className="w-full bg-gray-900/50 border border-gray-700 rounded-lg pl-11 pr-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                                            placeholder="Enter your password"
+                                            required
+                                        />
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-semibold py-3 px-4 rounded-lg transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-blue-900/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                                >
+                                    {loading ? 'Authenticating...' : 'Sign In'}
+                                </button>
+                            </form>
+
+                            <div className="mt-6 text-center">
+                                <p className="text-gray-400 text-sm">
+                                    New to the system?{' '}
+                                    <Link to="/register" className="text-blue-400 hover:text-blue-300 font-medium transition-colors">
+                                        Create Account
+                                    </Link>
+                                </p>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <h2 className="text-2xl font-bold text-white mb-2">Two-Factor Authentication</h2>
+                            <p className="text-gray-400 text-sm mb-6">
+                                We've sent a 6-digit verification code to <span className="text-blue-400 font-medium">{email}</span>.
+                            </p>
+
+                            {error && (
+                                <motion.div
+                                    initial={{ opacity: 0, x: -20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    className="bg-red-500/10 border border-red-500/50 text-red-400 p-3 rounded-lg mb-6 text-sm"
+                                >
+                                    {error}
+                                </motion.div>
+                            )}
+
+                            <form onSubmit={handleOTPSubmit} className="space-y-5">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-400 mb-2">Verification Code</label>
+                                    <div className="relative">
+                                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />
+                                        <input
+                                            type="text"
+                                            maxLength={6}
+                                            value={otpCode}
+                                            onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                                            className="w-full bg-gray-900/50 border border-gray-700 rounded-lg pl-11 pr-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-center text-xl font-bold tracking-widest transition-all"
+                                            placeholder="******"
+                                            required
+                                        />
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={loading || otpCode.length !== 6}
+                                    className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-semibold py-3 px-4 rounded-lg transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-blue-900/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                                >
+                                    {loading ? 'Verifying...' : 'Verify Code'}
+                                </button>
+                            </form>
+
+                            <div className="mt-6 text-center space-y-3">
+                                <button
+                                    onClick={handleSubmit}
+                                    className="text-sm text-blue-400 hover:text-blue-300 font-medium transition-colors"
+                                >
+                                    Resend Verification Code
+                                </button>
+                                <div className="text-gray-600">•</div>
+                                <button
+                                    onClick={() => {
+                                        setRequires2FA(false);
+                                        setOtpCode('');
+                                        setError('');
+                                    }}
+                                    className="text-sm text-gray-400 hover:text-white transition-colors"
+                                >
+                                    Back to Login
+                                </button>
+                            </div>
+                        </>
                     )}
-
-                    <form onSubmit={handleSubmit} className="space-y-5">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-400 mb-2">Email Address</label>
-                            <div className="relative">
-                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />
-                                <input
-                                    type="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    className="w-full bg-gray-900/50 border border-gray-700 rounded-lg pl-11 pr-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                                    placeholder="Enter your email"
-                                    required
-                                />
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-400 mb-2">Password</label>
-                            <div className="relative">
-                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />
-                                <input
-                                    type="password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full bg-gray-900/50 border border-gray-700 rounded-lg pl-11 pr-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                                    placeholder="Enter your password"
-                                    required
-                                />
-                            </div>
-                        </div>
-
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-semibold py-3 px-4 rounded-lg transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-blue-900/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                        >
-                            {loading ? 'Authenticating...' : 'Sign In'}
-                        </button>
-                    </form>
-
-                    <div className="mt-6 text-center">
-                        <p className="text-gray-400 text-sm">
-                            New to the system?{' '}
-                            <Link to="/register" className="text-blue-400 hover:text-blue-300 font-medium transition-colors">
-                                Create Account
-                            </Link>
-                        </p>
-                    </div>
                 </div>
 
                 {/* Footer */}

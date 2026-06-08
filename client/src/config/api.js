@@ -7,6 +7,10 @@ export const API_ENDPOINTS = {
     REGISTER: `${API_BASE_URL}/api/users`,
     ME: `${API_BASE_URL}/api/users/me`,
     UPDATE_PROFILE: `${API_BASE_URL}/api/users/profile`,
+    VERIFY_LOGIN_OTP: `${API_BASE_URL}/api/users/verify-login-otp`,
+    REQUEST_ENABLE_2FA: `${API_BASE_URL}/api/users/2fa/request-enable`,
+    CONFIRM_ENABLE_2FA: `${API_BASE_URL}/api/users/2fa/confirm-enable`,
+    DISABLE_2FA: `${API_BASE_URL}/api/users/2fa/disable`,
 
     // Cases
     CASES: `${API_BASE_URL}/api/cases`,

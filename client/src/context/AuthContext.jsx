@@ -36,11 +36,28 @@ export const AuthProvider = ({ children }) => {
     const login = async (email, password) => {
         try {
             const { data } = await axios.post(API_ENDPOINTS.LOGIN, { email, password });
+            
+            // Check if 2FA challenge is requested
+            if (data.requires2FA) {
+                return { success: true, requires2FA: true, email: data.email };
+            }
+
             localStorage.setItem('token', data.token);
             setUser(data);
             return { success: true };
         } catch (error) {
             return { success: false, message: error.response?.data?.message || 'Login failed' };
+        }
+    };
+
+    const verifyOTP = async (email, otp) => {
+        try {
+            const { data } = await axios.post(API_ENDPOINTS.VERIFY_LOGIN_OTP, { email, otp });
+            localStorage.setItem('token', data.token);
+            setUser(data);
+            return { success: true };
+        } catch (error) {
+            return { success: false, message: error.response?.data?.message || 'Verification failed' };
         }
     };
 
@@ -62,16 +79,13 @@ export const AuthProvider = ({ children }) => {
 
     const updateUser = (userData) => {
         setUser(userData);
-        // Optionally update token if returned, but usually token contains ID which doesn't change
-        // If token allows embedding name/role, we might need a new one. 
-        // The backend `updateUserProfile` returns a token, so let's update it.
         if (userData.token) {
             localStorage.setItem('token', userData.token);
         }
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, register, logout, updateUser, loading }}>
+        <AuthContext.Provider value={{ user, login, verifyOTP, register, logout, updateUser, loading }}>
             {children}
         </AuthContext.Provider>
     );

@@ -6,7 +6,7 @@ import { ArrowLeft, Clock, User, BarChart, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import EvidenceUpload from '../components/EvidenceUpload';
 import EvidenceList from '../components/EvidenceList';
-// import SimilarCasesPanel from '../components/SimilarCasesPanel'; // REMOVED
+import CaseChat from '../components/CaseChat';
 import API_BASE_URL from '../config/api';
 
 const CaseDetail = () => {
@@ -219,14 +219,25 @@ const CaseDetail = () => {
                 </motion.div> 
                 */}
 
-                {/* Evidence Section - Full Width */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 }}
-                >
-                    <EvidenceList evidence={evidence} />
-                </motion.div>
+                {/* Evidence and Collaboration Section */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2 }}
+                        className="lg:col-span-2"
+                    >
+                        <EvidenceList evidence={evidence} />
+                    </motion.div>
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.25 }}
+                        className="lg:col-span-1"
+                    >
+                        <CaseChat caseId={id} />
+                    </motion.div>
+                </div>
 
                 {/* Evidence Upload Modal */}
                 {showUploadModal && user?.role === 'investigator' && (

@@ -87,6 +87,12 @@ io.on('connection', (socket) => {
         console.log(`User ${userId} joined room ${userId}`);
     });
 
+    // Join a room based on case ID (passed from client)
+    socket.on('join_case_room', (caseId) => {
+        socket.join(caseId);
+        console.log(`User socket ${socket.id} joined case room ${caseId}`);
+    });
+
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
     });
