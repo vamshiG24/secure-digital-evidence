@@ -5,7 +5,9 @@ const {
     getCase,
     createCase,
     updateCase,
-    deleteCase
+    deleteCase,
+    getCaseMessages,
+    sendCaseMessage
 } = require('../controllers/caseController');
 const { protect, authorize } = require('../middlewares/authMiddleware');
 const auditLog = require('../middlewares/auditMiddleware');
@@ -18,5 +20,9 @@ router.route('/:id')
     .get(protect, getCase)
     .put(protect, authorize('admin', 'investigator'), auditLog('Update Case'), updateCase)
     .delete(protect, authorize('admin'), auditLog('Delete Case'), deleteCase);
+
+router.route('/:id/messages')
+    .get(protect, getCaseMessages)
+    .post(protect, sendCaseMessage);
 
 module.exports = router;

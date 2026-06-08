@@ -1,5 +1,6 @@
 const Case = require('../models/Case');
 const User = require('../models/User');
+const Message = require('../models/Message');
 
 // @desc    Get all cases (Admin/Investigator sees all, Analyst sees assigned)
 // @route   GET /api/cases
@@ -144,5 +145,53 @@ exports.deleteCase = async (req, res) => {
         // remove() might be deprecated in newer mongoose, using deleteOne
         await Case.deleteOne({ _id: req.params.id });
         res.status(200).json({ message: 'Case removed' });
+    }
+};
+
+// @desc    Get messages for a case
+// @route   GET /api/cases/:id/messages
+// @access  Private
+exports.getCaseMessages = async (req, res) => {
+    try {
+        const messages = await Message.find({ caseId: req.params.id })
+            .populate('sender', 'name email role')
+            .sort({ createdAt: 1 });
+        res.status(200).json(messages);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Send a message in a case
+// @route   POST /api/cases/:id/messages
+// @access  Private
+exports.sendCaseMessage = async (req, res) => {
+    try {
+        const { message } = req.body;
+        const caseId = req.params.id;
+
+        const caseItem = await Case.findById(caseId);
+        if (!caseItem) {
+            return res.status(404).json({ message: 'Case not found' });
+        }
+
+        const newMessage = await Message.create({
+            caseId,
+            sender: req.user.id,
+            message
+        });
+
+        const populatedMessage = await Message.findById(newMessage._id)
+            .populate('sender', 'name email role');
+
+        // Emit Socket.IO message to case room
+        const io = req.app.get('socketio');
+        if (io) {
+            io.to(caseId).emit('new_message', populatedMessage);
+        }
+
+        res.status(201).json(populatedMessage);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
     }
 };

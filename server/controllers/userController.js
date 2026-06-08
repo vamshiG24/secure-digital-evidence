@@ -44,6 +44,7 @@ exports.registerUser = async (req, res) => {
                 name: user.name,
                 email: user.email,
                 role: user.role,
+                twoFactorEnabled: false,
                 token: generateToken(user._id),
             });
         } else {
@@ -64,7 +65,33 @@ exports.loginUser = async (req, res) => {
         const user = await User.findOne({ email });
 
         if (user && (await user.matchPassword(password))) {
-            // Audit Log
+            if (user.twoFactorEnabled) {
+                // Generate 6-digit OTP
+                const otp = Math.floor(100000 + Math.random() * 900000).toString();
+                user.otpCode = otp;
+                user.otpExpires = Date.now() + 5 * 60 * 1000; // 5 minutes expiration
+                await user.save();
+
+                // Send OTP email
+                const { sendOTP } = require('../services/emailService');
+                await sendOTP(user.email, otp);
+
+                // Audit Log MFA Request
+                await AuditLog.create({
+                    user: user._id,
+                    action: 'MFA_CHALLENGE',
+                    details: `MFA challenge requested for login: ${user.email}`,
+                    ipAddress: req.ip,
+                    userAgent: req.get('User-Agent')
+                });
+
+                return res.status(200).json({
+                    requires2FA: true,
+                    email: user.email
+                });
+            }
+
+            // Audit Log successful login direct
             await AuditLog.create({
                 user: user._id,
                 action: 'USER_LOGIN',
@@ -78,6 +105,7 @@ exports.loginUser = async (req, res) => {
                 name: user.name,
                 email: user.email,
                 role: user.role,
+                twoFactorEnabled: false,
                 token: generateToken(user._id),
             });
         } else {
@@ -99,15 +127,13 @@ exports.getMe = async (req, res) => {
             name: user.name,
             email: user.email,
             role: user.role,
+            twoFactorEnabled: user.twoFactorEnabled
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };
 
-// @desc    Get all users (for admin assignment)
-// @route   GET /api/users
-// @access  Private (Admin)
 // @desc    Get all users (for admin assignment)
 // @route   GET /api/users
 // @access  Private (Admin)
@@ -150,11 +176,177 @@ exports.updateUserProfile = async (req, res) => {
                 name: updatedUser.name,
                 email: updatedUser.email,
                 role: updatedUser.role,
+                twoFactorEnabled: updatedUser.twoFactorEnabled,
                 token: generateToken(updatedUser._id),
             });
         } else {
             res.status(404).json({ message: 'User not found' });
         }
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Verify login OTP code
+// @route   POST /api/users/verify-login-otp
+// @access  Public
+exports.verifyLoginOTP = async (req, res) => {
+    const { email, otp } = req.body;
+
+    try {
+        const user = await User.findOne({ email });
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        if (!user.otpCode || user.otpCode !== otp || !user.otpExpires || user.otpExpires < Date.now()) {
+            return res.status(401).json({ message: 'Invalid or expired verification code' });
+        }
+
+        // Clear OTP code fields
+        user.otpCode = undefined;
+        user.otpExpires = undefined;
+        await user.save();
+
+        // Audit Log login
+        await AuditLog.create({
+            user: user._id,
+            action: 'USER_LOGIN',
+            details: `User logged in via 2FA: ${user.email}`,
+            ipAddress: req.ip,
+            userAgent: req.get('User-Agent')
+        });
+
+        res.json({
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            twoFactorEnabled: user.twoFactorEnabled,
+            token: generateToken(user._id),
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Request to enable 2FA (sends OTP)
+// @route   POST /api/users/2fa/request-enable
+// @access  Private
+exports.requestEnable2FA = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Generate OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        user.otpCode = otp;
+        user.otpExpires = Date.now() + 5 * 60 * 1000; // 5 mins
+        await user.save();
+
+        // Send OTP
+        const { sendOTP } = require('../services/emailService');
+        await sendOTP(user.email, otp);
+
+        res.json({ message: 'Verification code sent to your email' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Confirm enabling 2FA
+// @route   POST /api/users/2fa/confirm-enable
+// @access  Private
+exports.confirmEnable2FA = async (req, res) => {
+    const { otp } = req.body;
+
+    try {
+        const user = await User.findById(req.user.id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        if (!user.otpCode || user.otpCode !== otp || !user.otpExpires || user.otpExpires < Date.now()) {
+            return res.status(400).json({ message: 'Invalid or expired verification code' });
+        }
+
+        // Enable 2FA and clear code
+        user.twoFactorEnabled = true;
+        user.otpCode = undefined;
+        user.otpExpires = undefined;
+        await user.save();
+
+        // Audit Log
+        await AuditLog.create({
+            user: user._id,
+            action: 'MFA_ENABLED',
+            details: `User enabled 2FA: ${user.email}`,
+            ipAddress: req.ip,
+            userAgent: req.get('User-Agent')
+        });
+
+        res.json({
+            message: '2FA enabled successfully',
+            twoFactorEnabled: true,
+            user: {
+                _id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                twoFactorEnabled: true
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Disable 2FA
+// @route   POST /api/users/2fa/disable
+// @access  Private
+exports.disable2FA = async (req, res) => {
+    const { password } = req.body;
+
+    try {
+        const user = await User.findById(req.user.id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Verify password first
+        const isMatch = await user.matchPassword(password);
+        if (!isMatch) {
+            return res.status(401).json({ message: 'Invalid password' });
+        }
+
+        user.twoFactorEnabled = false;
+        user.otpCode = undefined;
+        user.otpExpires = undefined;
+        await user.save();
+
+        // Audit Log
+        await AuditLog.create({
+            user: user._id,
+            action: 'MFA_DISABLED',
+            details: `User disabled 2FA: ${user.email}`,
+            ipAddress: req.ip,
+            userAgent: req.get('User-Agent')
+        });
+
+        res.json({
+            message: '2FA disabled successfully',
+            twoFactorEnabled: false,
+            user: {
+                _id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                twoFactorEnabled: false
+            }
+        });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
