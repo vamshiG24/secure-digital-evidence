@@ -190,6 +190,37 @@ exports.sendCaseMessage = async (req, res) => {
             io.to(caseId).emit('new_message', populatedMessage);
         }
 
+        // Create notifications for other case participants (assigned investigator/creator)
+        const Notification = require('../models/Notification');
+        const recipients = [];
+
+        if (caseItem.assignedTo && caseItem.assignedTo.toString() !== req.user.id) {
+            recipients.push(caseItem.assignedTo.toString());
+        }
+        if (caseItem.createdBy && caseItem.createdBy.toString() !== req.user.id) {
+            const creatorStr = caseItem.createdBy.toString();
+            if (!recipients.includes(creatorStr)) {
+                recipients.push(creatorStr);
+            }
+        }
+
+        for (const recipientId of recipients) {
+            try {
+                const notification = await Notification.create({
+                    recipient: recipientId,
+                    message: `New message in case: ${caseItem.title}`,
+                    type: 'info',
+                    relatedLink: `/cases/${caseId}`
+                });
+
+                if (io) {
+                    io.to(recipientId).emit('notification', notification);
+                }
+            } catch (notifErr) {
+                console.error(`Error creating notification for ${recipientId}:`, notifErr);
+            }
+        }
+
         res.status(201).json(populatedMessage);
     } catch (error) {
         res.status(500).json({ message: error.message });
