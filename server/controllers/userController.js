@@ -65,48 +65,28 @@ exports.loginUser = async (req, res) => {
         const user = await User.findOne({ email });
 
         if (user && (await user.matchPassword(password))) {
-            if (user.twoFactorEnabled) {
-                // Generate 6-digit OTP
-                const otp = Math.floor(100000 + Math.random() * 900000).toString();
-                user.otpCode = otp;
-                user.otpExpires = Date.now() + 5 * 60 * 1000; // 5 minutes expiration
-                await user.save();
+            // Generate 6-digit OTP - Enforced globally for all logins
+            const otp = Math.floor(100000 + Math.random() * 900000).toString();
+            user.otpCode = otp;
+            user.otpExpires = Date.now() + 5 * 60 * 1000; // 5 minutes expiration
+            await user.save();
 
-                // Send OTP email
-                const { sendOTP } = require('../services/emailService');
-                await sendOTP(user.email, otp);
+            // Send OTP email
+            const { sendOTP } = require('../services/emailService');
+            await sendOTP(user.email, otp);
 
-                // Audit Log MFA Request
-                await AuditLog.create({
-                    user: user._id,
-                    action: 'MFA_CHALLENGE',
-                    details: `MFA challenge requested for login: ${user.email}`,
-                    ipAddress: req.ip,
-                    userAgent: req.get('User-Agent')
-                });
-
-                return res.status(200).json({
-                    requires2FA: true,
-                    email: user.email
-                });
-            }
-
-            // Audit Log successful login direct
+            // Audit Log MFA Request
             await AuditLog.create({
                 user: user._id,
-                action: 'USER_LOGIN',
-                details: `User logged in: ${user.email}`,
+                action: 'MFA_CHALLENGE',
+                details: `MFA challenge requested for login: ${user.email}`,
                 ipAddress: req.ip,
                 userAgent: req.get('User-Agent')
             });
 
-            res.json({
-                _id: user._id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-                twoFactorEnabled: false,
-                token: generateToken(user._id),
+            return res.status(200).json({
+                requires2FA: true,
+                email: user.email
             });
         } else {
             res.status(401).json({ message: 'Invalid email or password' });
@@ -127,7 +107,7 @@ exports.getMe = async (req, res) => {
             name: user.name,
             email: user.email,
             role: user.role,
-            twoFactorEnabled: user.twoFactorEnabled
+            twoFactorEnabled: true // Always return true since 2FA is globally enforced
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -140,7 +120,13 @@ exports.getMe = async (req, res) => {
 exports.getUsers = async (req, res) => {
     try {
         const users = await User.find({}).select('-password');
-        res.json(users);
+        // Map users to always have twoFactorEnabled as true
+        const mappedUsers = users.map(u => {
+            const obj = u.toObject();
+            obj.twoFactorEnabled = true;
+            return obj;
+        });
+        res.json(mappedUsers);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -176,7 +162,7 @@ exports.updateUserProfile = async (req, res) => {
                 name: updatedUser.name,
                 email: updatedUser.email,
                 role: updatedUser.role,
-                twoFactorEnabled: updatedUser.twoFactorEnabled,
+                twoFactorEnabled: true, // Always return true
                 token: generateToken(updatedUser._id),
             });
         } else {
@@ -223,7 +209,7 @@ exports.verifyLoginOTP = async (req, res) => {
             name: user.name,
             email: user.email,
             role: user.role,
-            twoFactorEnabled: user.twoFactorEnabled,
+            twoFactorEnabled: true, // Always return true
             token: generateToken(user._id),
         });
     } catch (error) {
@@ -235,119 +221,19 @@ exports.verifyLoginOTP = async (req, res) => {
 // @route   POST /api/users/2fa/request-enable
 // @access  Private
 exports.requestEnable2FA = async (req, res) => {
-    try {
-        const user = await User.findById(req.user.id);
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-
-        // Generate OTP
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        user.otpCode = otp;
-        user.otpExpires = Date.now() + 5 * 60 * 1000; // 5 mins
-        await user.save();
-
-        // Send OTP
-        const { sendOTP } = require('../services/emailService');
-        await sendOTP(user.email, otp);
-
-        res.json({ message: 'Verification code sent to your email' });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
+    res.status(400).json({ message: 'Two-Factor Authentication is enforced globally and cannot be toggled.' });
 };
 
 // @desc    Confirm enabling 2FA
 // @route   POST /api/users/2fa/confirm-enable
 // @access  Private
 exports.confirmEnable2FA = async (req, res) => {
-    const { otp } = req.body;
-
-    try {
-        const user = await User.findById(req.user.id);
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-
-        if (!user.otpCode || user.otpCode !== otp || !user.otpExpires || user.otpExpires < Date.now()) {
-            return res.status(400).json({ message: 'Invalid or expired verification code' });
-        }
-
-        // Enable 2FA and clear code
-        user.twoFactorEnabled = true;
-        user.otpCode = undefined;
-        user.otpExpires = undefined;
-        await user.save();
-
-        // Audit Log
-        await AuditLog.create({
-            user: user._id,
-            action: 'MFA_ENABLED',
-            details: `User enabled 2FA: ${user.email}`,
-            ipAddress: req.ip,
-            userAgent: req.get('User-Agent')
-        });
-
-        res.json({
-            message: '2FA enabled successfully',
-            twoFactorEnabled: true,
-            user: {
-                _id: user._id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-                twoFactorEnabled: true
-            }
-        });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
+    res.status(400).json({ message: 'Two-Factor Authentication is enforced globally and cannot be toggled.' });
 };
 
 // @desc    Disable 2FA
 // @route   POST /api/users/2fa/disable
 // @access  Private
 exports.disable2FA = async (req, res) => {
-    const { password } = req.body;
-
-    try {
-        const user = await User.findById(req.user.id);
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-
-        // Verify password first
-        const isMatch = await user.matchPassword(password);
-        if (!isMatch) {
-            return res.status(401).json({ message: 'Invalid password' });
-        }
-
-        user.twoFactorEnabled = false;
-        user.otpCode = undefined;
-        user.otpExpires = undefined;
-        await user.save();
-
-        // Audit Log
-        await AuditLog.create({
-            user: user._id,
-            action: 'MFA_DISABLED',
-            details: `User disabled 2FA: ${user.email}`,
-            ipAddress: req.ip,
-            userAgent: req.get('User-Agent')
-        });
-
-        res.json({
-            message: '2FA disabled successfully',
-            twoFactorEnabled: false,
-            user: {
-                _id: user._id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-                twoFactorEnabled: false
-            }
-        });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
+    res.status(400).json({ message: 'Two-Factor Authentication is enforced globally and cannot be disabled.' });
 };
