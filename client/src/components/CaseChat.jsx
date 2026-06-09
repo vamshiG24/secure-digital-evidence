@@ -112,7 +112,9 @@ const CaseChat = ({ caseId }) => {
                     </div>
                 ) : (
                     messages.map((msg) => {
-                        const isOwnMessage = msg.sender?._id === user?._id || msg.sender?.id === user?.id || msg.sender === user?._id;
+                        const currentUserId = user?._id || user?.id;
+                        const senderId = msg.sender?._id || msg.sender?.id || msg.sender;
+                        const isOwnMessage = currentUserId && senderId && currentUserId.toString() === senderId.toString();
                         const senderName = msg.sender?.name || 'Unknown User';
                         const senderRole = msg.sender?.role ? msg.sender.role.charAt(0).toUpperCase() + msg.sender.role.slice(1) : 'Staff';
 
