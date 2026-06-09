@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -7,13 +8,13 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: '#0f172a', // Deep Navy
-        card: '#1e293b',       // Slate 800
-        primary: '#3b82f6',    // Blue 500
-        secondary: '#64748b',  // Slate 500
-        accent: '#22c55e',     // Green 500
-        text: '#e5e7eb',       // Gray 200
-        'text-muted': '#9ca3af' // Gray 400
+        background: 'var(--color-background)',
+        card: 'var(--color-card)',
+        primary: 'var(--color-primary)',
+        secondary: 'var(--color-secondary)',
+        accent: 'var(--color-accent)',
+        text: 'var(--color-text)',
+        'text-muted': 'var(--color-text-muted)'
       },
       fontFamily: {
         sans: ['Inter', 'sans-serif'],

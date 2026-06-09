@@ -2,9 +2,215 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+    --color-background: #f8fafc; /* Slate 50 */
+    --color-card: #ffffff;       /* White */
+    --color-primary: #3b82f6;    /* Blue 500 */
+    --color-secondary: #64748b;  /* Slate 500 */
+    --color-accent: #22c55e;     /* Green 500 */
+    --color-text: #0f172a;       /* Slate 900 */
+    --color-text-muted: #475569; /* Slate 600 */
+    --color-border: #e2e8f0;     /* Slate 200 */
+    --color-input-bg: #f1f5f9;   /* Slate 100 */
+    --color-sidebar-bg: #ffffff;
+    --color-scrollbar-track: #f1f5f9;
+    --color-scrollbar-thumb: #cbd5e1;
+    --color-scrollbar-thumb-hover: #94a3b8;
+}
+
+.dark {
+    --color-background: #0f172a; /* Deep Navy */
+    --color-card: #1e293b;       /* Slate 800 */
+    --color-primary: #3b82f6;    /* Blue 500 */
+    --color-secondary: #64748b;  /* Slate 500 */
+    --color-accent: #22c55e;     /* Green 500 */
+    --color-text: #e5e7eb;       /* Gray 200 */
+    --color-text-muted: #9ca3af; /* Gray 400 */
+    --color-border: #1e293b;     /* Slate 800 */
+    --color-input-bg: #0f172a;
+    --color-sidebar-bg: #1e293b;
+    --color-scrollbar-track: #0f172a;
+    --color-scrollbar-thumb: #334155;
+    --color-scrollbar-thumb-hover: #475569;
+}
+
 @layer base {
     body {
         @apply bg-background text-text font-sans antialiased;
+        transition: background-color 0.3s ease, color 0.3s ease;
+    }
+}
+
+/* Light mode overrides - only apply when NOT .dark */
+:root:not(.dark) {
+    /* Hardcoded dark backgrounds to light backgrounds */
+    .bg-gray-900,
+    .bg-gray-950,
+    .bg-gray-900\/50,
+    .bg-gray-950\/50 {
+        background-color: var(--color-input-bg) !important;
+    }
+    
+    .bg-gray-800,
+    .bg-gray-800\/50 {
+        background-color: #e2e8f0 !important;
+    }
+    
+    .bg-gray-700 {
+        background-color: #cbd5e1 !important;
+    }
+
+    /* Borders */
+    .border-gray-800,
+    .border-gray-700,
+    .border-gray-900 {
+        border-color: var(--color-border) !important;
+    }
+
+    /* Text colors: white/light grays to dark colors by default */
+    .text-white {
+        color: var(--color-text) !important;
+    }
+
+    .text-gray-100,
+    .text-gray-200,
+    .text-gray-300 {
+        color: var(--color-text) !important;
+    }
+
+    .text-gray-400,
+    .text-gray-500 {
+        color: var(--color-text-muted) !important;
+    }
+
+    /* Restore white/light text inside colored backgrounds (like buttons, badges, alerts) */
+    [class*="bg-blue-"] .text-white,
+    [class*="bg-red-"] .text-white,
+    [class*="bg-green-"] .text-white,
+    [class*="bg-emerald-"] .text-white,
+    [class*="bg-indigo-"] .text-white,
+    .bg-primary .text-white,
+    .bg-accent .text-white,
+    .keep-white,
+    [class*="bg-blue-"] .text-white *,
+    [class*="bg-red-"] .text-white *,
+    [class*="bg-green-"] .text-white *,
+    [class*="bg-emerald-"] .text-white *,
+    [class*="bg-indigo-"] .text-white *,
+    .bg-primary .text-white *,
+    .bg-accent .text-white *,
+    .keep-white * {
+        color: #ffffff !important;
+    }
+
+    [class*="bg-blue-"] .text-gray-100,
+    [class*="bg-blue-"] .text-gray-200,
+    [class*="bg-blue-"] .text-gray-300,
+    [class*="bg-red-"] .text-gray-100,
+    [class*="bg-red-"] .text-gray-200,
+    [class*="bg-red-"] .text-gray-300,
+    [class*="bg-green-"] .text-gray-100,
+    [class*="bg-green-"] .text-gray-200,
+    [class*="bg-green-"] .text-gray-300,
+    [class*="bg-emerald-"] .text-gray-100,
+    [class*="bg-emerald-"] .text-gray-200,
+    [class*="bg-emerald-"] .text-gray-300,
+    [class*="bg-indigo-"] .text-gray-100,
+    [class*="bg-indigo-"] .text-gray-200,
+    [class*="bg-indigo-"] .text-gray-300 {
+        color: #f3f4f6 !important; /* light gray text inside dark badges */
+    }
+
+    /* Input placeholders styling */
+    input::placeholder,
+    textarea::placeholder {
+        color: var(--color-text-muted) !important;
+        opacity: 0.7 !important;
+    }
+
+    /* Dropdown options styling */
+    select option {
+        background-color: var(--color-card) !important;
+        color: var(--color-text) !important;
+    }
+
+    /* Input borders focus overrides */
+    .focus\:border-blue-500:focus,
+    .focus\:ring-blue-500\/20:focus {
+        border-color: var(--color-primary) !important;
+    }
+
+    /* Hover backgrounds */
+    .hover\:bg-gray-800:hover {
+        background-color: #f1f5f9 !important;
+    }
+    .hover\:bg-gray-800\/50:hover {
+        background-color: #f1f5f9 !important;
+    }
+    .hover\:text-white:hover {
+        color: var(--color-text) !important;
+    }
+
+    [class*="bg-blue-"] .hover\:text-white:hover,
+    [class*="bg-red-"] .hover\:text-white:hover,
+    [class*="bg-green-"] .hover\:text-white:hover,
+    [class*="bg-emerald-"] .hover\:text-white:hover,
+    [class*="bg-indigo-"] .hover\:text-white:hover,
+    .bg-primary .hover\:text-white:hover,
+    .bg-accent .hover\:text-white:hover,
+    [class*="bg-blue-"] .hover\:text-white:hover *,
+    [class*="bg-red-"] .hover\:text-white:hover *,
+    [class*="bg-green-"] .hover\:text-white:hover *,
+    [class*="bg-emerald-"] .hover\:text-white:hover *,
+    [class*="bg-indigo-"] .hover\:text-white:hover *,
+    .bg-primary .hover\:text-white:hover *,
+    .bg-accent .hover\:text-white:hover * {
+        color: #ffffff !important;
+    }
+    
+    /* Specific overrides for color contrast in light mode (e.g. badges, status tags) */
+    .text-emerald-400,
+    .text-emerald-500 {
+        color: #047857 !important; /* Emerald 700 */
+    }
+    
+    .text-green-400,
+    .text-green-500 {
+        color: #15803d !important; /* Green 700 */
+    }
+    
+    .text-red-400,
+    .text-red-500 {
+        color: #b91c1c !important; /* Red 700 */
+    }
+
+    .text-blue-400,
+    .text-blue-500 {
+        color: #1d4ed8 !important; /* Blue 700 */
+    }
+
+    .text-yellow-400,
+    .text-yellow-500 {
+        color: #a16207 !important; /* Yellow 700 */
+    }
+
+    .text-orange-500 {
+        color: #c2410c !important; /* Orange 700 */
+    }
+
+    .text-cyan-400,
+    .text-cyan-500 {
+        color: #0369a1 !important; /* Cyan 700 */
+    }
+
+    .text-purple-400,
+    .text-purple-500 {
+        color: #6d28d9 !important; /* Purple 700 */
+    }
+
+    /* Shadow effects for premium light theme card depth */
+    .bg-card {
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
     }
 }
 
@@ -14,14 +220,14 @@
 }
 
 ::-webkit-scrollbar-track {
-    background: #0f172a;
+    background: var(--color-scrollbar-track);
 }
 
 ::-webkit-scrollbar-thumb {
-    background: #334155;
+    background: var(--color-scrollbar-thumb);
     border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: #475569;
+    background: var(--color-scrollbar-thumb-hover);
 }

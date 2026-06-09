@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { Bell, Shield, Lock, Monitor, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import axios from 'axios';
 import { API_ENDPOINTS } from '../config/api';
 
 const Settings = () => {
     const { user, updateUser } = useAuth();
+    const { theme, setTheme } = useTheme();
     const [emailNotifs, setEmailNotifs] = useState(true);
     const [pushNotifs, setPushNotifs] = useState(false);
 
@@ -116,8 +118,26 @@ const Settings = () => {
                             <p className="text-sm text-gray-500">Customize the application look</p>
                         </div>
                         <div className="flex items-center space-x-2 bg-gray-900 p-1 rounded-lg border border-gray-700">
-                            <button className="px-3 py-1.5 rounded-md bg-gray-800 text-white shadow-sm text-sm">Dark</button>
-                            <button className="px-3 py-1.5 rounded-md text-gray-500 hover:text-white text-sm">Light</button>
+                            <button 
+                                onClick={() => setTheme('dark')}
+                                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                                    theme === 'dark' 
+                                        ? 'bg-gray-800 text-white shadow-sm' 
+                                        : 'text-gray-500 hover:text-gray-300'
+                                }`}
+                            >
+                                Dark
+                            </button>
+                            <button 
+                                onClick={() => setTheme('light')}
+                                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                                    theme === 'light' 
+                                        ? 'bg-card text-text shadow-sm border border-gray-300' 
+                                        : 'text-gray-500 hover:text-gray-750'
+                                }`}
+                            >
+                                Light
+                            </button>
                         </div>
                     </div>
                 </motion.div>
@@ -179,32 +199,12 @@ const Settings = () => {
                             <div>
                                 <p className="text-white font-medium">Two-Factor Authentication (2FA)</p>
                                 <p className="text-sm text-gray-500">
-                                    {user?.twoFactorEnabled 
-                                        ? 'Your account is secured with email one-time passwords.' 
-                                        : 'Add an extra layer of security to your account using email verification.'}
+                                    Two-Factor Authentication is globally enforced by system security policy.
                                 </p>
                             </div>
-                            {user?.twoFactorEnabled ? (
-                                <button
-                                    onClick={() => {
-                                        setMfaError('');
-                                        setMfaSuccess('');
-                                        setDisablePassword('');
-                                        setMfaModal('disable');
-                                    }}
-                                    className="px-4 py-2 border border-red-600 text-red-500 hover:bg-red-600 hover:text-white rounded-lg text-sm transition-colors"
-                                >
-                                    Disable 2FA
-                                </button>
-                            ) : (
-                                <button
-                                    onClick={handleOpenEnable2FA}
-                                    disabled={mfaLoading}
-                                    className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-500 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
-                                >
-                                    {mfaLoading ? 'Sending...' : 'Enable 2FA'}
-                                </button>
-                            )}
+                            <span className="px-3 py-1.5 bg-green-500/10 text-green-400 border border-green-500/30 rounded-full text-xs font-semibold">
+                                Enforced
+                            </span>
                         </div>
                         <div className="flex items-center justify-between py-2">
                             <div>
