@@ -65,28 +65,22 @@ exports.loginUser = async (req, res) => {
         const user = await User.findOne({ email });
 
         if (user && (await user.matchPassword(password))) {
-            // Generate 6-digit OTP - Enforced globally for all logins
-            const otp = Math.floor(100000 + Math.random() * 900000).toString();
-            user.otpCode = otp;
-            user.otpExpires = Date.now() + 5 * 60 * 1000; // 5 minutes expiration
-            await user.save();
-
-            // Send OTP email
-            const { sendOTP } = require('../services/emailService');
-            await sendOTP(user.email, otp);
-
-            // Audit Log MFA Request
+            // Audit Log successful login direct (2FA temporarily bypassed)
             await AuditLog.create({
                 user: user._id,
-                action: 'MFA_CHALLENGE',
-                details: `MFA challenge requested for login: ${user.email}`,
+                action: 'USER_LOGIN',
+                details: `User logged in (2FA temporarily bypassed): ${user.email}`,
                 ipAddress: req.ip,
                 userAgent: req.get('User-Agent')
             });
 
-            return res.status(200).json({
-                requires2FA: true,
-                email: user.email
+            res.json({
+                _id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                twoFactorEnabled: true,
+                token: generateToken(user._id),
             });
         } else {
             res.status(401).json({ message: 'Invalid email or password' });

@@ -263,3 +263,56 @@ html.light .bg-card {
 ::-webkit-scrollbar-thumb:hover {
     background: var(--color-scrollbar-thumb-hover);
 }
+
+/* --- Premium Hover & Active Click Animations --- */
+
+/* Reusable scaling & press micro-animations */
+button,
+a,
+select,
+input[type="button"],
+input[type="submit"],
+.interactive-item {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    outline: none;
+}
+
+/* Hover effects for buttons/interactive items */
+button:hover:not(:disabled),
+input[type="submit"]:hover:not(:disabled),
+input[type="button"]:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
+/* Click/Active pressed down states */
+button:active:not(:disabled),
+a:active,
+input[type="submit"]:active:not(:disabled),
+input[type="button"]:active:not(:disabled) {
+    transform: translateY(1px) scale(0.97) !important;
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.05);
+}
+
+/* Smooth zoom on hover for icons inside buttons */
+button:hover:not(:disabled) svg,
+a:hover svg {
+    transform: scale(1.08);
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Card hover animation (subtle elevation lift) */
+.bg-card,
+.card-hover {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s ease;
+}
+
+html.dark .bg-card:hover {
+    border-color: rgba(59, 130, 246, 0.3) !important;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+}
+
+html.light .bg-card:hover {
+    border-color: rgba(59, 130, 246, 0.3) !important;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.08);
+}
