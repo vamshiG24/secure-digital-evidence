@@ -42,176 +42,208 @@
 }
 
 /* Light mode overrides - only apply when NOT .dark */
-:root:not(.dark) {
-    /* Hardcoded dark backgrounds to light backgrounds */
-    .bg-gray-900,
-    .bg-gray-950,
-    .bg-gray-900\/50,
-    .bg-gray-950\/50 {
-        background-color: var(--color-input-bg) !important;
-    }
-    
-    .bg-gray-800,
-    .bg-gray-800\/50 {
-        background-color: #e2e8f0 !important;
-    }
-    
-    .bg-gray-700 {
-        background-color: #cbd5e1 !important;
-    }
+html.light .bg-gray-900,
+html.light .bg-gray-950,
+html.light .bg-gray-900\/50,
+html.light .bg-gray-950\/50 {
+    background-color: var(--color-input-bg) !important;
+}
 
-    /* Borders */
-    .border-gray-800,
-    .border-gray-700,
-    .border-gray-900 {
-        border-color: var(--color-border) !important;
-    }
+html.light .bg-gray-800,
+html.light .bg-gray-800\/50 {
+    background-color: #e2e8f0 !important;
+}
 
-    /* Text colors: white/light grays to dark colors by default */
-    .text-white {
-        color: var(--color-text) !important;
-    }
+html.light .bg-gray-700 {
+    background-color: #cbd5e1 !important;
+}
 
-    .text-gray-100,
-    .text-gray-200,
-    .text-gray-300 {
-        color: var(--color-text) !important;
-    }
+/* Borders */
+html.light .border-gray-800,
+html.light .border-gray-700,
+html.light .border-gray-900 {
+    border-color: var(--color-border) !important;
+}
 
-    .text-gray-400,
-    .text-gray-500 {
-        color: var(--color-text-muted) !important;
-    }
+/* Text colors: white/light grays to dark colors by default */
+html.light .text-white {
+    color: var(--color-text) !important;
+}
 
-    /* Restore white/light text inside colored backgrounds (like buttons, badges, alerts) */
-    [class*="bg-blue-"] .text-white,
-    [class*="bg-red-"] .text-white,
-    [class*="bg-green-"] .text-white,
-    [class*="bg-emerald-"] .text-white,
-    [class*="bg-indigo-"] .text-white,
-    .bg-primary .text-white,
-    .bg-accent .text-white,
-    .keep-white,
-    [class*="bg-blue-"] .text-white *,
-    [class*="bg-red-"] .text-white *,
-    [class*="bg-green-"] .text-white *,
-    [class*="bg-emerald-"] .text-white *,
-    [class*="bg-indigo-"] .text-white *,
-    .bg-primary .text-white *,
-    .bg-accent .text-white *,
-    .keep-white * {
-        color: #ffffff !important;
-    }
+html.light .text-gray-100,
+html.light .text-gray-200,
+html.light .text-gray-300 {
+    color: var(--color-text) !important;
+}
 
-    [class*="bg-blue-"] .text-gray-100,
-    [class*="bg-blue-"] .text-gray-200,
-    [class*="bg-blue-"] .text-gray-300,
-    [class*="bg-red-"] .text-gray-100,
-    [class*="bg-red-"] .text-gray-200,
-    [class*="bg-red-"] .text-gray-300,
-    [class*="bg-green-"] .text-gray-100,
-    [class*="bg-green-"] .text-gray-200,
-    [class*="bg-green-"] .text-gray-300,
-    [class*="bg-emerald-"] .text-gray-100,
-    [class*="bg-emerald-"] .text-gray-200,
-    [class*="bg-emerald-"] .text-gray-300,
-    [class*="bg-indigo-"] .text-gray-100,
-    [class*="bg-indigo-"] .text-gray-200,
-    [class*="bg-indigo-"] .text-gray-300 {
-        color: #f3f4f6 !important; /* light gray text inside dark badges */
-    }
+html.light .text-gray-400,
+html.light .text-gray-500 {
+    color: var(--color-text-muted) !important;
+}
 
-    /* Input placeholders styling */
-    input::placeholder,
-    textarea::placeholder {
-        color: var(--color-text-muted) !important;
-        opacity: 0.7 !important;
-    }
+/* Restore white/light text inside colored backgrounds (like buttons, badges, alerts) */
+html.light .bg-blue-500 .text-white,
+html.light .bg-blue-600 .text-white,
+html.light .bg-red-500 .text-white,
+html.light .bg-red-600 .text-white,
+html.light .bg-green-500 .text-white,
+html.light .bg-green-600 .text-white,
+html.light .bg-emerald-500 .text-white,
+html.light .bg-emerald-600 .text-white,
+html.light .bg-indigo-500 .text-white,
+html.light .bg-indigo-600 .text-white,
+html.light .bg-primary .text-white,
+html.light .bg-accent .text-white,
+html.light .keep-white,
+html.light .bg-blue-500 .text-white *,
+html.light .bg-blue-600 .text-white *,
+html.light .bg-red-500 .text-white *,
+html.light .bg-red-600 .text-white *,
+html.light .bg-green-500 .text-white *,
+html.light .bg-green-600 .text-white *,
+html.light .bg-emerald-500 .text-white *,
+html.light .bg-emerald-600 .text-white *,
+html.light .bg-indigo-500 .text-white *,
+html.light .bg-indigo-600 .text-white *,
+html.light .bg-primary .text-white *,
+html.light .bg-accent .text-white *,
+html.light .keep-white * {
+    color: #ffffff !important;
+}
 
-    /* Dropdown options styling */
-    select option {
-        background-color: var(--color-card) !important;
-        color: var(--color-text) !important;
-    }
+html.light .bg-blue-500 .text-gray-100,
+html.light .bg-blue-500 .text-gray-200,
+html.light .bg-blue-500 .text-gray-300,
+html.light .bg-blue-600 .text-gray-100,
+html.light .bg-blue-600 .text-gray-200,
+html.light .bg-blue-600 .text-gray-300,
+html.light .bg-red-500 .text-gray-100,
+html.light .bg-red-500 .text-gray-200,
+html.light .bg-red-500 .text-gray-300,
+html.light .bg-red-600 .text-gray-100,
+html.light .bg-red-600 .text-gray-200,
+html.light .bg-red-600 .text-gray-300,
+html.light .bg-green-500 .text-gray-100,
+html.light .bg-green-500 .text-gray-200,
+html.light .bg-green-500 .text-gray-300,
+html.light .bg-green-600 .text-gray-100,
+html.light .bg-green-600 .text-gray-200,
+html.light .bg-green-600 .text-gray-300,
+html.light .bg-emerald-500 .text-gray-100,
+html.light .bg-emerald-500 .text-gray-200,
+html.light .bg-emerald-500 .text-gray-300,
+html.light .bg-emerald-600 .text-gray-100,
+html.light .bg-emerald-600 .text-gray-200,
+html.light .bg-emerald-600 .text-gray-300,
+html.light .bg-indigo-500 .text-gray-100,
+html.light .bg-indigo-500 .text-gray-200,
+html.light .bg-indigo-500 .text-gray-300,
+html.light .bg-indigo-600 .text-gray-100,
+html.light .bg-indigo-600 .text-gray-200,
+html.light .bg-indigo-600 .text-gray-300 {
+    color: #f3f4f6 !important; /* light gray text inside dark badges */
+}
 
-    /* Input borders focus overrides */
-    .focus\:border-blue-500:focus,
-    .focus\:ring-blue-500\/20:focus {
-        border-color: var(--color-primary) !important;
-    }
+/* Input placeholders styling */
+html.light input::placeholder,
+html.light textarea::placeholder {
+    color: var(--color-text-muted) !important;
+    opacity: 0.7 !important;
+}
 
-    /* Hover backgrounds */
-    .hover\:bg-gray-800:hover {
-        background-color: #f1f5f9 !important;
-    }
-    .hover\:bg-gray-800\/50:hover {
-        background-color: #f1f5f9 !important;
-    }
-    .hover\:text-white:hover {
-        color: var(--color-text) !important;
-    }
+/* Dropdown options styling */
+html.light select option {
+    background-color: var(--color-card) !important;
+    color: var(--color-text) !important;
+}
 
-    [class*="bg-blue-"] .hover\:text-white:hover,
-    [class*="bg-red-"] .hover\:text-white:hover,
-    [class*="bg-green-"] .hover\:text-white:hover,
-    [class*="bg-emerald-"] .hover\:text-white:hover,
-    [class*="bg-indigo-"] .hover\:text-white:hover,
-    .bg-primary .hover\:text-white:hover,
-    .bg-accent .hover\:text-white:hover,
-    [class*="bg-blue-"] .hover\:text-white:hover *,
-    [class*="bg-red-"] .hover\:text-white:hover *,
-    [class*="bg-green-"] .hover\:text-white:hover *,
-    [class*="bg-emerald-"] .hover\:text-white:hover *,
-    [class*="bg-indigo-"] .hover\:text-white:hover *,
-    .bg-primary .hover\:text-white:hover *,
-    .bg-accent .hover\:text-white:hover * {
-        color: #ffffff !important;
-    }
-    
-    /* Specific overrides for color contrast in light mode (e.g. badges, status tags) */
-    .text-emerald-400,
-    .text-emerald-500 {
-        color: #047857 !important; /* Emerald 700 */
-    }
-    
-    .text-green-400,
-    .text-green-500 {
-        color: #15803d !important; /* Green 700 */
-    }
-    
-    .text-red-400,
-    .text-red-500 {
-        color: #b91c1c !important; /* Red 700 */
-    }
+/* Input borders focus overrides */
+html.light .focus\:border-blue-500:focus,
+html.light .focus\:ring-blue-500\/20:focus {
+    border-color: var(--color-primary) !important;
+}
 
-    .text-blue-400,
-    .text-blue-500 {
-        color: #1d4ed8 !important; /* Blue 700 */
-    }
+/* Hover backgrounds */
+html.light .hover\:bg-gray-800:hover {
+    background-color: #f1f5f9 !important;
+}
+html.light .hover\:bg-gray-800\/50:hover {
+    background-color: #f1f5f9 !important;
+}
+html.light .hover\:text-white:hover {
+    color: var(--color-text) !important;
+}
 
-    .text-yellow-400,
-    .text-yellow-500 {
-        color: #a16207 !important; /* Yellow 700 */
-    }
+html.light .bg-blue-500 .hover\:text-white:hover,
+html.light .bg-blue-600 .hover\:text-white:hover,
+html.light .bg-red-500 .hover\:text-white:hover,
+html.light .bg-red-600 .hover\:text-white:hover,
+html.light .bg-green-500 .hover\:text-white:hover,
+html.light .bg-green-600 .hover\:text-white:hover,
+html.light .bg-emerald-500 .hover\:text-white:hover,
+html.light .bg-emerald-600 .hover\:text-white:hover,
+html.light .bg-indigo-500 .hover\:text-white:hover,
+html.light .bg-indigo-600 .hover\:text-white:hover,
+html.light .bg-primary .hover\:text-white:hover,
+html.light .bg-accent .hover\:text-white:hover,
+html.light .bg-blue-500 .hover\:text-white:hover *,
+html.light .bg-blue-600 .hover\:text-white:hover *,
+html.light .bg-red-500 .hover\:text-white:hover *,
+html.light .bg-red-600 .hover\:text-white:hover *,
+html.light .bg-green-500 .hover\:text-white:hover *,
+html.light .bg-green-600 .hover\:text-white:hover *,
+html.light .bg-emerald-500 .hover\:text-white:hover *,
+html.light .bg-emerald-600 .hover\:text-white:hover *,
+html.light .bg-indigo-500 .hover\:text-white:hover *,
+html.light .bg-indigo-600 .hover\:text-white:hover *,
+html.light .bg-primary .hover\:text-white:hover *,
+html.light .bg-accent .hover\:text-white:hover * {
+    color: #ffffff !important;
+}
 
-    .text-orange-500 {
-        color: #c2410c !important; /* Orange 700 */
-    }
+/* Specific overrides for color contrast in light mode (e.g. badges, status tags) */
+html.light .text-emerald-400,
+html.light .text-emerald-500 {
+    color: #047857 !important; /* Emerald 700 */
+}
 
-    .text-cyan-400,
-    .text-cyan-500 {
-        color: #0369a1 !important; /* Cyan 700 */
-    }
+html.light .text-green-400,
+html.light .text-green-500 {
+    color: #15803d !important; /* Green 700 */
+}
 
-    .text-purple-400,
-    .text-purple-500 {
-        color: #6d28d9 !important; /* Purple 700 */
-    }
+html.light .text-red-400,
+html.light .text-red-500 {
+    color: #b91c1c !important; /* Red 700 */
+}
 
-    /* Shadow effects for premium light theme card depth */
-    .bg-card {
-        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
-    }
+html.light .text-blue-400,
+html.light .text-blue-500 {
+    color: #1d4ed8 !important; /* Blue 700 */
+}
+
+html.light .text-yellow-400,
+html.light .text-yellow-500 {
+    color: #a16207 !important; /* Yellow 700 */
+}
+
+html.light .text-orange-500 {
+    color: #c2410c !important; /* Orange 700 */
+}
+
+html.light .text-cyan-400,
+html.light .text-cyan-500 {
+    color: #0369a1 !important; /* Cyan 700 */
+}
+
+html.light .text-purple-400,
+html.light .text-purple-500 {
+    color: #6d28d9 !important; /* Purple 700 */
+}
+
+/* Shadow effects for premium light theme card depth */
+html.light .bg-card {
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
 }
 
 /* Custom scrollbar for cyberpunk/tech feel */
