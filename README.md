@@ -13,21 +13,24 @@ An enterprise-grade, cybersecurity-focused digital evidence management and foren
 
 ### 1. 🔐 Cryptographic Chain of Custody & Security
 * **Automated SHA-256 Checksums**: Every uploaded piece of evidence is hashed client/server side on arrival to detect tampering or bit-rot.
-* **Tamper-Proof Cloud Storage**: Integrated with Cloudinary raw file pipelines with immutable links and metadata preservation.
+* **Private Evidence Storage**: Files are stored as *authenticated* Cloudinary assets. Storage URLs are never returned to clients; every read goes through the API (`/download`, `/preview`) using short-lived signed URLs and an access check on the parent case.
+* **Hash-Linked Chain of Custody**: Every custody block's hash covers its index, previous hash, action, custodian, notes, timestamp **and the file's SHA-256**. Verification recomputes every block, so editing any field in the database is detected, not just a broken link.
 * **Two-Factor Authentication (2FA)**: Mandatory email-based OTP verification powered by Nodemailer SMTP before granting privileged session access.
-* **Role-Based Access Control (RBAC)**: Strict segregation of duties across **Admin**, **Investigator**, and **Analyst** roles.
+* **Role-Based Access Control (RBAC)**: **Admin** (full control, user management, audit logs), **Investigator** (own/assigned cases, upload & custody transfer), **Analyst** (read-only across all cases, integrity audits). Investigators cannot open cases they are not part of, even by ID. New registrations always start as Investigator.
 * **Immutable Audit Trail**: Every case access, evidence view, hash check, and dossier export is permanently logged with IP address and client User-Agent.
 
 ### 2. 🤖 Multimodal AI Forensics & RAG Intelligence
-* **Google Gemini Multimodal RAG**: Autonomous agent service indexing and analyzing documents, PDFs, metadata, and case notes.
-* **Forensic Inspector**: Deep automated scans identifying entities, suspect timelines, discrepancies, and forensic indicators.
-* **One-Click Court Dossier Export**: Formats complete case chronologies, chain of custody logs, and cryptographic signatures ready for legal presentation.
-* **AI Evidence Assistant**: Real-time natural language query assistant for searching case details and evidence links.
+* **Evidence Q&A (Gemini)**: Text is extracted from evidence (PDF/text; images are passed to Gemini Vision), chunked, ranked by TF-cosine similarity, and the top chunks are sent to `gemini-2.5-flash` with citations. Extracted text is cached in Redis per file hash.
+* **Forensic Inspector**: Regex IOC extraction (IPs, emails, hashes, CVEs, wallets, URLs, phones) plus a structured JSON analysis from Gemini.
+* **Prompt-injection hardened**: Evidence content is wrapped in `<evidence>` delimiters and the model is instructed to treat it strictly as data.
+* **Court Dossier & Case Report**: The dossier verifies every custody ledger at generation time and states the result; the AI report only makes claims the ledger check supports.
+* Every AI feature degrades gracefully without `GEMINI_API_KEY`.
 
 ### 3. ⚡ Scalable Microservices & DevOps Architecture
 * **Containerized Deployment**: Preconfigured multi-container stack orchestrated via `docker-compose.yml`.
 * **Nginx Reverse Proxy**: Single ingress point routing traffic seamlessly between the frontend and discrete backend microservices.
-* **Redis Caching & Pub/Sub**: High-performance caching layer for case metadata and fast event-driven pub/sub messaging.
+* **Redis**: Caching for case/evidence lists, JWT blocklist on logout, rate-limit counters and RAG text cache. Falls back to in-memory when Redis is absent.
+* **Shared service factory** (`server/config/createApp.js`): one hardened Express bootstrap (Helmet, CORS allow-list, `trust proxy 1`, `/health`, JSON 404/500 handlers) used by the monolith and every microservice.
 * **Decoupled Microservices**:
   * `user-service` (Port 5001)
   * `case-service` (Port 5002)
@@ -36,9 +39,10 @@ An enterprise-grade, cybersecurity-focused digital evidence management and foren
   * `audit-service` (Port 5005)
 
 ### 4. 🎨 Modern UI / UX & Command Center
-* **Command Palette (`Ctrl + K` / `Cmd + K`)**: Instant keyboard navigation, quick search, and global actions.
-* **Adaptive Dark / Light Themes**: Ultra-crisp high-contrast cyber dark mode and modern clean light mode.
-* **Micro-Animations & Smooth Routing**: Powered by Framer Motion and modern CSS styling.
+* **Design system**: semantic CSS tokens (`client/src/index.css`) with paired light/dark themes, system-preference detection and a pre-paint script to avoid theme flash.
+* **21st.dev-style primitives** (`client/src/components/ui/`): spotlight cards, border beam, shimmer CTA, animated counters, accessible modal (focus trap, Esc, scroll lock), stagger reveals, all respecting `prefers-reduced-motion`.
+* **Responsive shell**: collapsible sidebar, mobile drawer, skip link, focus management on route change, route-level code splitting.
+* **Command Palette (`Ctrl/Cmd + K`)**, real-time notifications over Socket.IO, and Framer Motion page transitions.
 
 ---
 
@@ -48,7 +52,7 @@ An enterprise-grade, cybersecurity-focused digital evidence management and foren
 graph TD
     Client["Client Browser (React 19 + Vite)"]
     Nginx["Nginx Reverse Proxy (:80)"]
-    Redis["Redis Cache & Pub/Sub (:6379)"]
+    Redis["Redis (cache, blocklist, rate limits)"]
     Mongo["MongoDB Atlas Database"]
     Gemini["Google Gemini AI API"]
     Cloudinary["Cloudinary Storage"]
@@ -70,15 +74,15 @@ graph TD
     EvidenceService --> Redis
     NotificationService --> Redis
 
-    EvidenceService --> Gemini
+    CaseService --> Gemini
 ```
 
 ---
 
 ## 🛠️ Tech Stack
 
-* **Frontend**: React 19, Vite, React Router v7, Framer Motion, Lucide React, Axios, React Hot Toast
-* **Backend**: Node.js, Express 5, Mongoose 9, Socket.io, Multer, Helmet, Morgan, Redis Client
+* **Frontend**: React 19, Vite 8, React Router v7, Framer Motion 12, Lucide React, Axios, React Hot Toast, Socket.IO client
+* **Backend**: Node.js 22, Express 5, Mongoose 9, Socket.IO, Multer, Helmet, Morgan, Redis client, Cloudinary SDK v2, node:test
 * **AI & Machine Learning**: Google GenAI SDK (`@google/genai`), PDF Parser (`pdf-parse`)
 * **Security & Auth**: JWT, Bcrypt.js, Nodemailer (SMTP 2FA OTP), SHA-256 Hashing
 * **DevOps & Infrastructure**: Docker, Docker Compose, Nginx, Redis Alpine
@@ -114,9 +118,9 @@ graph TD
    ```
 
 4. **Access the application**:
-   * **Web App (Nginx Ingress)**: `http://localhost`
-   * **Frontend Direct**: `http://localhost:5174`
-   * **Redis**: `localhost:6379`
+   * **Web App (Nginx ingress)**: `http://localhost`
+   * Redis and the services are only reachable inside the compose network.
+   * Production images: `BUILD_TARGET=prod NODE_ENV=production docker compose up --build -d` (static client served by nginx, non-root Node, no bind mounts).
 
 ---
 
@@ -145,9 +149,12 @@ SMTP_PASS=your_gmail_app_password
 EMAIL_FROM="Secure Evidence System <your_email@gmail.com>"
 GEMINI_API_KEY=your_gemini_api_key
 REDIS_URL=redis://localhost:6379
+FRONTEND_URL=https://your-frontend.example   # comma-separated list allowed; required in production for CORS
 ```
 
-Seed initial administrative accounts and demo cases:
+`MONGO_URI` and `JWT_SECRET` are mandatory; the server refuses to start without them. In development the OTP is printed to the server console; in production it is only ever emailed.
+
+Seed initial accounts and demo cases (refuses to run when `NODE_ENV=production`):
 ```bash
 npm run seed
 ```
@@ -156,6 +163,13 @@ Start the monolithic development server:
 ```bash
 npm run dev
 ```
+
+Migrating evidence created before private storage / the hash-linked ledger (dry run first, then `--apply`):
+```bash
+npm run migrate:evidence
+npm run migrate:evidence -- --apply
+```
+Records whose stored hash no longer matches the file are left untouched and reported, since that is exactly what the integrity audit is meant to surface.
 
 *(Optional) Start discrete microservices individually:*
 ```bash
@@ -187,8 +201,9 @@ After running `npm run seed`:
 | :--- | :--- | :--- |
 | **Administrator** | `admin@secureevidence.com` | `password123` |
 | **Investigator** | `investigator@secureevidence.com` | `password123` |
+| **Analyst** | `analyst@secureevidence.com` | `password123` |
 
-> *Note: If 2FA OTP is enabled, check your configured SMTP inbox or server terminal output for the 6-digit verification code.*
+> 2FA is mandatory. In development the 6-digit code is printed in the server terminal; otherwise check the SMTP inbox.
 
 ---
 
@@ -199,21 +214,25 @@ secure-digital-evidence/
 ├── client/                     # Frontend Application (React 19 + Vite)
 │   ├── src/
 │   │   ├── api/                # Axios interceptors & API client
-│   │   ├── components/         # Modals, CommandPalette, Assistant, Navbars
-│   │   ├── context/            # AuthContext (JWT & 2FA state)
-│   │   ├── layouts/            # Responsive AppLayout with Sidebar & Drawer
-│   │   ├── pages/              # Dashboard, Cases, Evidence, AI Studio, Audit
-│   │   └── index.css           # Design tokens, variables & animations
+│   │   ├── components/         # Modals, CommandPalette, Assistant, Sidebar, Navbar
+│   │   │   └── ui/             # Design-system primitives (SpotlightCard, Modal, ...)
+│   │   ├── context/            # AuthContext (session), ThemeContext (light/dark)
+│   │   ├── hooks/              # useNotifications (Socket.IO + polling provider)
+│   │   ├── layouts/            # Responsive AppLayout (collapsible sidebar, drawer)
+│   │   ├── pages/              # Dashboard, Cases, Evidence, AI Studio, Audit, Users
+│   │   └── index.css           # Design tokens (light + dark), components, motion
 │   ├── Dockerfile
 │   └── vite.config.js
 ├── server/                     # Backend API & Forensic Services
-│   ├── config/                 # Database & Redis configuration
+│   ├── config/                 # DB, Redis, createApp() service factory
 │   ├── controllers/            # Case, Evidence, Audit, User, RAG controllers
-│   ├── microservices/          # Independent services (User, Case, Evidence, etc.)
-│   ├── middlewares/            # RBAC Auth, Rate Limiter, Audit Logger
+│   ├── microservices/          # Thin entrypoints built on createApp()
+│   ├── middlewares/            # protect/authorize, rate limiter, audit logger
 │   ├── models/                 # Mongoose schemas (Case, Evidence, User, Audit)
 │   ├── routes/                 # Express API routes
-│   ├── services/               # Gemini RAG, Forensic Agents, Email (2FA)
+│   ├── services/               # Gemini agents, RAG retrieval, Email (2FA)
+│   ├── utils/                  # custodyChain, caseAccess, storage, escapeRegex
+│   ├── test/                   # node:test unit tests (npm test)
 │   ├── .env.example            # Environment variables template
 │   ├── Dockerfile
 │   ├── seeder.js               # Database population script
@@ -228,10 +247,13 @@ secure-digital-evidence/
 
 ## 🛡️ Security & Best Practices
 
-* **Never commit `.env` files**: All secrets and credentials must remain in `.env` (ignored by `.gitignore`).
-* **Evidence Immutability**: Evidence records cannot be silently modified without altering their SHA-256 hash, immediately flagging custody tampering in the audit log.
-* **API Rate Limiting**: Protection against brute-force authentication and spam requests.
-* **Security Headers**: Hardened with Helmet for secure HTTP response headers.
+* **Never commit `.env` files**: CI fails if one is tracked. If a secret has ever been committed, rotate it *and* rewrite history; deleting the file in a later commit is not enough.
+* **Authentication**: bcrypt passwords (min 8 chars), cryptographically random OTPs compared in constant time, 7-day JWT in an `httpOnly` `SameSite=Strict` cookie, server-side blocklist on logout, suspended accounts rejected at login and on every request.
+* **Sessions**: a password change invalidates every other session for that account (`passwordChangedAt` is checked on each request); Socket.IO connections authenticate with the same cookie, may only join their own notification room, and case rooms require case access.
+* **Rate limiting** on register/login/OTP/upload keyed on the proxy-derived client IP (`trust proxy 1`), with an in-memory fallback when Redis is down.
+* **Input hardening**: user search terms are regex-escaped, case updates are field-whitelisted, uploads are MIME-checked and capped at 50 MB, chat messages are length-limited.
+* **Demo tamper simulation** exists only outside production and only for admins.
+* **Security headers** via Helmet; `X-Powered-By` disabled; errors are generic in production.
 
 ---
 
