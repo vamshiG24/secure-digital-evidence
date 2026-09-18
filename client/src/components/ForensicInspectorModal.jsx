@@ -2,14 +2,11 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import API from '../api/axios';
 import toast from 'react-hot-toast';
-import {
-  X, Shield, FileText, Download, CheckCircle, AlertTriangle,
-  Copy, Hash, Clock, User, HardDrive, ArrowRight,
-  Layers, Lock, Eye, Check, Loader2, Play, ExternalLink
-} from 'lucide-react';
+import { X, Shield, FileText, Download, CheckCircle, AlertTriangle, Copy, Hash, ArrowRight, Layers, Eye, Loader2 } from 'lucide-react';
 
 export default function ForensicInspectorModal({ evidence: initialEvidence, isOpen, onClose, onUpdated }) {
   const [evidence, setEvidence] = useState(initialEvidence);
+  const previewUrl = `${import.meta.env.VITE_API_URL || ''}/api/evidence/${evidence?._id}/preview`;
   const [activeTab, setActiveTab] = useState('preview'); // 'preview' | 'hashes' | 'custody' | 'transfer'
   const [verifying, setVerifying] = useState(false);
   const [verifyResult, setVerifyResult] = useState(null);
@@ -50,7 +47,7 @@ export default function ForensicInspectorModal({ evidence: initialEvidence, isOp
       } else {
         toast.error('Cryptographic seal failed! Tampering detected!');
       }
-    } catch (err) {
+    } catch {
       toast.error('Verification failed: ' + (err.response?.data?.message || err.message));
     } finally {
       setVerifying(false);
@@ -67,7 +64,7 @@ export default function ForensicInspectorModal({ evidence: initialEvidence, isOp
       } else {
         toast.error(data.message || 'Chain of Custody validation failed!');
       }
-    } catch (err) {
+    } catch {
       toast.error('Ledger verification failed');
     } finally {
       setVerifyingChain(false);
@@ -95,7 +92,7 @@ export default function ForensicInspectorModal({ evidence: initialEvidence, isOp
         action: 'TRANSFER_OF_CUSTODY',
         notes: ''
       });
-    } catch (err) {
+    } catch {
       toast.error(err.response?.data?.message || 'Transfer failed');
     } finally {
       setTransferring(false);
@@ -114,7 +111,7 @@ export default function ForensicInspectorModal({ evidence: initialEvidence, isOp
     <AnimatePresence>
       <div style={{
         position: 'fixed', inset: 0, zIndex: 9998,
-        background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(8px)',
+        background: 'var(--overlay)', backdropFilter: 'blur(8px)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: '24px 16px'
       }}
@@ -125,9 +122,9 @@ export default function ForensicInspectorModal({ evidence: initialEvidence, isOp
           exit={{ opacity: 0, scale: 0.96, y: 15 }}
           style={{
             width: '100%', maxWidth: 880, maxHeight: '92vh',
-            background: 'white', borderRadius: 24,
-            boxShadow: '0 25px 60px -12px rgba(15,23,42,0.35)',
-            border: '1px solid rgba(29,78,216,0.18)',
+            background: 'var(--surface)', borderRadius: 24,
+            boxShadow: '0 25px 60px -12px var(--overlay)',
+            border: '1px solid var(--primary-soft)',
             display: 'flex', flexDirection: 'column', overflow: 'hidden'
           }}
           onClick={e => e.stopPropagation()}>
@@ -141,38 +138,38 @@ export default function ForensicInspectorModal({ evidence: initialEvidence, isOp
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{
                 width: 44, height: 44, borderRadius: 12,
-                background: 'linear-gradient(135deg, #1d4ed8, #06b6d4)',
+                background: 'linear-gradient(135deg, var(--primary), var(--accent))',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white',
-                boxShadow: '0 4px 16px rgba(29,78,216,0.25)'
+                boxShadow: '0 4px 16px var(--border-brand)'
               }}>
                 <Shield size={22} />
               </div>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <h2 style={{ fontSize: 17, fontWeight: 800, color: '#0f172a', margin: 0, fontFamily: "'Space Grotesk'" }}>
+                  <h2 style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', margin: 0, fontFamily: "'Space Grotesk'" }}>
                     Forensic Asset Inspector
                   </h2>
                   <span style={{
                     fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase',
                     padding: '2px 8px', borderRadius: 99,
-                    background: evidence.classification === 'Top Secret' ? '#fef2f2' : '#eff6ff',
-                    color: evidence.classification === 'Top Secret' ? '#dc2626' : '#1d4ed8',
-                    border: `1px solid ${evidence.classification === 'Top Secret' ? '#fca5a5' : '#bfdbfe'}`
+                    background: evidence.classification === 'Top Secret' ? 'var(--danger-soft)' : 'var(--primary-soft)',
+                    color: evidence.classification === 'Top Secret' ? 'var(--danger)' : 'var(--primary)',
+                    border: `1px solid ${evidence.classification === 'Top Secret' ? 'color-mix(in srgb, var(--danger) 40%, transparent)' : 'var(--border-brand)'}`
                   }}>
                     {evidence.classification || 'Confidential'}
                   </span>
                 </div>
-                <div style={{ fontSize: 12, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 450 }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 450 }}>
                   {evidence.fileName} • {(evidence.fileSize / 1024).toFixed(1)} KB
                 </div>
               </div>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <a href={evidence.filePath} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ padding: '6px 12px' }}>
+              <a href={previewUrl.replace('/preview', '/download')} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ padding: '6px 12px' }}>
                 <Download size={13} /> Original
               </a>
-              <button onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#64748b', padding: 4 }}>
+              <button onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)', padding: 4 }}>
                 <X size={20} />
               </button>
             </div>
@@ -181,7 +178,7 @@ export default function ForensicInspectorModal({ evidence: initialEvidence, isOp
           {/* Modal Tab Navigation */}
           <div style={{
             display: 'flex', gap: 4, padding: '8px 24px',
-            borderBottom: '1px solid var(--border)', background: '#fafbfc'
+            borderBottom: '1px solid var(--border)', background: 'var(--surface-2)'
           }}>
             {[
               { id: 'preview', label: 'Media Preview', icon: Eye },
@@ -198,9 +195,9 @@ export default function ForensicInspectorModal({ evidence: initialEvidence, isOp
                     display: 'flex', alignItems: 'center', gap: 6,
                     padding: '8px 16px', borderRadius: 10, fontSize: 12.5, fontWeight: 600,
                     border: 'none', cursor: 'pointer', transition: 'all 0.2s',
-                    background: active ? '#1d4ed8' : 'transparent',
-                    color: active ? 'white' : '#475569',
-                    boxShadow: active ? '0 4px 12px rgba(29,78,216,0.25)' : 'none'
+                    background: active ? 'var(--primary)' : 'transparent',
+                    color: active ? 'white' : 'var(--text-secondary)',
+                    boxShadow: active ? '0 4px 12px var(--border-brand)' : 'none'
                   }}>
                   <Icon size={14} />
                   {tab.label}
@@ -217,27 +214,27 @@ export default function ForensicInspectorModal({ evidence: initialEvidence, isOp
               <div>
                 <div style={{
                   minHeight: 280, maxHeight: 420, borderRadius: 16,
-                  background: '#0f172a', display: 'flex', alignItems: 'center',
+                  background: 'var(--text-primary)', display: 'flex', alignItems: 'center',
                   justifyContent: 'center', overflow: 'hidden', position: 'relative',
-                  marginBottom: 16, border: '1px solid #1e293b'
+                  marginBottom: 16, border: '1px solid var(--text-primary)'
                 }}>
                   {isImage ? (
-                    <img src={evidence.filePath} alt={evidence.fileName}
+                    <img src={previewUrl} alt={evidence.fileName}
                       style={{ maxHeight: 400, maxWidth: '100%', objectFit: 'contain' }} />
                   ) : isVideo ? (
-                    <video controls src={evidence.filePath} style={{ maxHeight: 400, width: '100%' }} />
+                    <video controls src={previewUrl} style={{ maxHeight: 400, width: '100%' }} />
                   ) : isAudio ? (
                     <div style={{ padding: 40, textAlign: 'center' }}>
-                      <audio controls src={evidence.filePath} style={{ width: 340 }} />
+                      <audio controls src={previewUrl} style={{ width: 340 }} />
                     </div>
                   ) : isPdf ? (
-                    <iframe src={`${evidence.filePath}#toolbar=0`} title="PDF Document Preview"
+                    <iframe src={`${previewUrl}#toolbar=0`} title="PDF Document Preview"
                       style={{ width: '100%', height: 400, border: 'none' }} />
                   ) : (
-                    <div style={{ color: '#94a3b8', textAlign: 'center', padding: 30 }}>
+                    <div style={{ color: 'var(--text-faint)', textAlign: 'center', padding: 30 }}>
                       <FileText size={48} style={{ opacity: 0.4, marginBottom: 12 }} />
                       <div style={{ fontSize: 14, fontWeight: 600 }}>Forensic Binary / Data Asset</div>
-                      <div style={{ fontSize: 12, color: '#64748b' }}>Raw hex inspection and cryptographic digest verified</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Raw hex inspection and cryptographic digest verified</div>
                     </div>
                   )}
                 </div>
@@ -245,20 +242,20 @@ export default function ForensicInspectorModal({ evidence: initialEvidence, isOp
                 {/* Metadata Details Grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
                   <div style={{ padding: '12px 14px', background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)' }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>File Type / MIME</div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', marginTop: 2 }}>{evidence.fileType || 'application/octet-stream'}</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>File Type / MIME</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginTop: 2 }}>{evidence.fileType || 'application/octet-stream'}</div>
                   </div>
                   <div style={{ padding: '12px 14px', background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)' }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Exact File Size</div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', marginTop: 2 }}>{evidence.fileSize?.toLocaleString()} bytes</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Exact File Size</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginTop: 2 }}>{evidence.fileSize?.toLocaleString()} bytes</div>
                   </div>
                   <div style={{ padding: '12px 14px', background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)' }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Entropy Analysis</div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#16a34a', marginTop: 2 }}>7.94 / 8.00 (Standard)</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Entropy Analysis</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--success)', marginTop: 2 }}>7.94 / 8.00 (Standard)</div>
                   </div>
                   <div style={{ padding: '12px 14px', background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)' }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Ingesting Custodian</div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', marginTop: 2 }}>{evidence.uploader?.name || 'Investigator'}</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Ingesting Custodian</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginTop: 2 }}>{evidence.uploader?.name || 'Investigator'}</div>
                   </div>
                 </div>
               </div>
@@ -269,10 +266,10 @@ export default function ForensicInspectorModal({ evidence: initialEvidence, isOp
               <div>
                 <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
-                    <h3 style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', margin: 0 }}>
+                    <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
                       Cryptographic Checksum Trinity
                     </h3>
-                    <p style={{ fontSize: 12, color: '#64748b', margin: 0 }}>
+                    <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
                       Standard digital evidence verification digests computed at initial seizure.
                     </p>
                   </div>
@@ -286,9 +283,9 @@ export default function ForensicInspectorModal({ evidence: initialEvidence, isOp
                   <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
                     style={{
                       padding: '12px 16px', borderRadius: 12, marginBottom: 16,
-                      background: verifyResult.verified ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
-                      border: `1px solid ${verifyResult.verified ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`,
-                      color: verifyResult.verified ? '#15803d' : '#b91c1c',
+                      background: verifyResult.verified ? 'var(--success-soft)' : 'var(--danger-soft)',
+                      border: `1px solid ${verifyResult.verified ? 'color-mix(in srgb, var(--success) 30%, transparent)' : 'color-mix(in srgb, var(--danger) 30%, transparent)'}`,
+                      color: verifyResult.verified ? 'var(--success)' : 'var(--danger)',
                       display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, fontWeight: 600
                     }}>
                     {verifyResult.verified ? <CheckCircle size={18} /> : <AlertTriangle size={18} />}
@@ -299,14 +296,14 @@ export default function ForensicInspectorModal({ evidence: initialEvidence, isOp
                 {/* SHA-256 Box */}
                 <div style={{ padding: '14px 16px', background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', marginBottom: 12 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#1d4ed8', letterSpacing: '0.05em' }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--primary)', letterSpacing: '0.05em' }}>
                       Primary Seal: SHA-256 Digest
                     </span>
-                    <button onClick={() => handleCopy(evidence.fileHash, 'SHA-256')} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600 }}>
+                    <button onClick={() => handleCopy(evidence.fileHash, 'SHA-256')} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600 }}>
                       <Copy size={12} /> Copy
                     </button>
                   </div>
-                  <div style={{ fontFamily: 'monospace', fontSize: 12, color: '#0f172a', wordBreak: 'break-all', background: 'white', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)' }}>
+                  <div style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--text-primary)', wordBreak: 'break-all', background: 'var(--surface)', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)' }}>
                     {evidence.fileHash}
                   </div>
                 </div>
@@ -314,14 +311,14 @@ export default function ForensicInspectorModal({ evidence: initialEvidence, isOp
                 {/* SHA-1 Box */}
                 <div style={{ padding: '14px 16px', background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', marginBottom: 12 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#ca8a04', letterSpacing: '0.05em' }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--warning)', letterSpacing: '0.05em' }}>
                       Secondary Checksum: SHA-1 Digest
                     </span>
-                    <button onClick={() => handleCopy(evidence.sha1Hash || 'N/A', 'SHA-1')} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600 }}>
+                    <button onClick={() => handleCopy(evidence.sha1Hash || 'N/A', 'SHA-1')} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600 }}>
                       <Copy size={12} /> Copy
                     </button>
                   </div>
-                  <div style={{ fontFamily: 'monospace', fontSize: 12, color: '#0f172a', wordBreak: 'break-all', background: 'white', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)' }}>
+                  <div style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--text-primary)', wordBreak: 'break-all', background: 'var(--surface)', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)' }}>
                     {evidence.sha1Hash || 'Computed at ingestion (N/A for legacy assets)'}
                   </div>
                 </div>
@@ -329,14 +326,14 @@ export default function ForensicInspectorModal({ evidence: initialEvidence, isOp
                 {/* MD5 Box */}
                 <div style={{ padding: '14px 16px', background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#0891b2', letterSpacing: '0.05em' }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--accent)', letterSpacing: '0.05em' }}>
                       Legacy Reference: MD5 Checksum
                     </span>
-                    <button onClick={() => handleCopy(evidence.md5Hash || 'N/A', 'MD5')} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600 }}>
+                    <button onClick={() => handleCopy(evidence.md5Hash || 'N/A', 'MD5')} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600 }}>
                       <Copy size={12} /> Copy
                     </button>
                   </div>
-                  <div style={{ fontFamily: 'monospace', fontSize: 12, color: '#0f172a', wordBreak: 'break-all', background: 'white', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)' }}>
+                  <div style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--text-primary)', wordBreak: 'break-all', background: 'var(--surface)', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)' }}>
                     {evidence.md5Hash || 'Computed at ingestion (N/A for legacy assets)'}
                   </div>
                 </div>
@@ -348,10 +345,10 @@ export default function ForensicInspectorModal({ evidence: initialEvidence, isOp
               <div>
                 <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
-                    <h3 style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', margin: 0 }}>
+                    <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
                       Cryptographic Chain of Custody Ledger
                     </h3>
-                    <p style={{ fontSize: 12, color: '#64748b', margin: 0 }}>
+                    <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
                       Tamper-evident Merkle/Block custody log. Each block hashes the previous block's digest.
                     </p>
                   </div>
@@ -365,9 +362,9 @@ export default function ForensicInspectorModal({ evidence: initialEvidence, isOp
                   <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
                     style={{
                       padding: '10px 14px', borderRadius: 12, marginBottom: 14,
-                      background: chainResult.isChainValid ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
-                      border: `1px solid ${chainResult.isChainValid ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`,
-                      color: chainResult.isChainValid ? '#15803d' : '#b91c1c',
+                      background: chainResult.isChainValid ? 'var(--success-soft)' : 'var(--danger-soft)',
+                      border: `1px solid ${chainResult.isChainValid ? 'color-mix(in srgb, var(--success) 30%, transparent)' : 'color-mix(in srgb, var(--danger) 30%, transparent)'}`,
+                      color: chainResult.isChainValid ? 'var(--success)' : 'var(--danger)',
                       fontSize: 12.5, fontWeight: 600
                     }}>
                     {chainResult.message}
@@ -378,8 +375,8 @@ export default function ForensicInspectorModal({ evidence: initialEvidence, isOp
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   {chain.length === 0 ? (
                     <div style={{ padding: '16px', background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)' }}>
-                      <div style={{ fontWeight: 700, color: '#1d4ed8', fontSize: 13 }}>Genesis Block Initialized</div>
-                      <div style={{ fontSize: 12, color: '#64748b' }}>Seized by {evidence.uploader?.name || 'Investigator'} on {new Date(evidence.uploadedAt).toLocaleString()}</div>
+                      <div style={{ fontWeight: 700, color: 'var(--primary)', fontSize: 13 }}>Genesis Block Initialized</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Seized by {evidence.uploader?.name || 'Investigator'} on {new Date(evidence.uploadedAt).toLocaleString()}</div>
                     </div>
                   ) : (
                     chain.map((block, idx) => (
@@ -391,34 +388,34 @@ export default function ForensicInspectorModal({ evidence: initialEvidence, isOp
                           <div>
                             <span style={{
                               fontSize: 10, fontWeight: 800, textTransform: 'uppercase',
-                              padding: '2px 8px', borderRadius: 6, background: '#1d4ed8', color: 'white', marginRight: 8
+                              padding: '2px 8px', borderRadius: 6, background: 'var(--primary)', color: 'white', marginRight: 8
                             }}>
                               BLOCK #{block.blockIndex ?? idx}
                             </span>
-                            <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
                               {block.action?.replace(/_/g, ' ')}
                             </span>
                           </div>
-                          <span style={{ fontSize: 11, color: '#64748b' }}>
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                             {new Date(block.timestamp).toLocaleString()}
                           </span>
                         </div>
 
-                        <div style={{ fontSize: 12, color: '#334155', marginBottom: 10 }}>
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 10 }}>
                           <strong>Custodian:</strong> {block.custodian?.name} ({block.custodian?.role}) • Badge: <code>{block.custodian?.badgeNumber || 'N/A'}</code>
                         </div>
                         {block.notes && (
-                          <div style={{ fontSize: 12, color: '#64748b', fontStyle: 'italic', marginBottom: 10, background: 'white', padding: '6px 10px', borderRadius: 8 }}>
+                          <div style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: 10, background: 'var(--surface)', padding: '6px 10px', borderRadius: 8 }}>
                             "{block.notes}"
                           </div>
                         )}
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 10, fontFamily: 'monospace' }}>
-                          <div style={{ background: 'white', padding: '6px 8px', borderRadius: 6, border: '1px solid var(--border)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            <span style={{ color: '#94a3b8' }}>prev: </span>{block.prevHash}
+                          <div style={{ background: 'var(--surface)', padding: '6px 8px', borderRadius: 6, border: '1px solid var(--border)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <span style={{ color: 'var(--text-faint)' }}>prev: </span>{block.prevHash}
                           </div>
-                          <div style={{ background: 'white', padding: '6px 8px', borderRadius: 6, border: '1px solid var(--border)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            <span style={{ color: '#16a34a' }}>hash: </span>{block.hash}
+                          <div style={{ background: 'var(--surface)', padding: '6px 8px', borderRadius: 6, border: '1px solid var(--border)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <span style={{ color: 'var(--success)' }}>hash: </span>{block.hash}
                           </div>
                         </div>
                       </div>
@@ -432,10 +429,10 @@ export default function ForensicInspectorModal({ evidence: initialEvidence, isOp
             {activeTab === 'transfer' && (
               <div>
                 <div style={{ marginBottom: 16 }}>
-                  <h3 style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', margin: 0 }}>
+                  <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
                     Execute Formal Transfer of Custody
                   </h3>
-                  <p style={{ fontSize: 12, color: '#64748b', margin: 0 }}>
+                  <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
                     Appends a new cryptographically hashed block to the chain of custody.
                   </p>
                 </div>
@@ -443,7 +440,7 @@ export default function ForensicInspectorModal({ evidence: initialEvidence, isOp
                 <form onSubmit={handleTransferSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                     <div>
-                      <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }}>
                         Recipient Custodian Name *
                       </label>
                       <input
@@ -457,7 +454,7 @@ export default function ForensicInspectorModal({ evidence: initialEvidence, isOp
                     </div>
 
                     <div>
-                      <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }}>
                         Recipient Role / Department
                       </label>
                       <select
@@ -475,7 +472,7 @@ export default function ForensicInspectorModal({ evidence: initialEvidence, isOp
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                     <div>
-                      <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }}>
                         Badge / ID Number
                       </label>
                       <input
@@ -488,7 +485,7 @@ export default function ForensicInspectorModal({ evidence: initialEvidence, isOp
                     </div>
 
                     <div>
-                      <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }}>
                         Action Category
                       </label>
                       <select
@@ -504,7 +501,7 @@ export default function ForensicInspectorModal({ evidence: initialEvidence, isOp
                   </div>
 
                   <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }}>
                       Transfer Remarks / Reason
                     </label>
                     <textarea
@@ -534,7 +531,7 @@ export default function ForensicInspectorModal({ evidence: initialEvidence, isOp
           <div style={{
             padding: '12px 24px', borderTop: '1px solid var(--border)',
             background: 'var(--surface)', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            fontSize: 11, color: '#64748b'
+            fontSize: 11, color: 'var(--text-muted)'
           }}>
             <span>Cryptographic Integrity Protocol: ISO/IEC 27037:2012 Compliant</span>
             <span>Case File: {evidence.caseId?.title || 'Case Active'}</span>

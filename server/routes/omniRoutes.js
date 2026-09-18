@@ -4,6 +4,7 @@ const Case = require('../models/Case');
 const Evidence = require('../models/Evidence');
 const User = require('../models/User');
 const { protect } = require('../middlewares/authMiddleware');
+const escapeRegex = require('../utils/escapeRegex');
 
 // @desc    High-speed Global Omnibar search across cases, evidence, and users
 // @route   GET /api/search/omni
@@ -15,42 +16,32 @@ router.get('/omni', protect, async (req, res) => {
             return res.status(200).json({ cases: [], evidence: [], users: [] });
         }
 
-        const regex = new RegExp(query, 'i');
+        const regex = new RegExp(escapeRegex(query.slice(0, 100)), 'i');
+        const restricted = req.user.role === 'investigator';
+        const caseScope = restricted ? { $or: [{ assignedTo: req.user._id }, { createdBy: req.user._id }] } : {};
+        const visibleCaseIds = restricted ? (await Case.find(caseScope).select('_id')).map(c => c._id) : null;
 
         const [cases, evidence, users] = await Promise.all([
             Case.find({
-                $or: [
-                    { title: regex },
-                    { description: regex },
-                    { caseNumber: regex },
-                    { tags: regex }
-                ]
+                ...caseScope,
+                $and: [{ $or: [{ title: regex }, { description: regex }, { caseNumber: regex }, { tags: regex }] }]
             })
             .select('title description caseNumber status priority createdAt')
             .limit(5),
 
             Evidence.find({
-                $or: [
-                    { fileName: regex },
-                    { fileHash: regex },
-                    { description: regex },
-                    { tags: regex }
-                ]
+                ...(visibleCaseIds ? { caseId: { $in: visibleCaseIds } } : {}),
+                $or: [{ fileName: regex }, { fileHash: regex }, { description: regex }, { tags: regex }]
             })
             .select('fileName fileHash fileType fileSize caseId uploadedAt')
             .populate('caseId', 'title caseNumber')
             .limit(5),
 
-            User.find({
-                $or: [
-                    { name: regex },
-                    { email: regex },
-                    { role: regex },
-                    { badgeNumber: regex }
-                ]
-            })
-            .select('name email role badgeNumber')
-            .limit(4)
+            req.user.role === 'analyst'
+                ? Promise.resolve([])
+                : User.find({ $or: [{ name: regex }, { email: regex }, { role: regex }, { badgeId: regex }] })
+                    .select('name email role badgeId avatarUrl')
+                    .limit(4)
         ]);
 
         res.status(200).json({ cases, evidence, users });

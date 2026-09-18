@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import API from '../api/axios';
+import API, { SESSION_EXPIRED_EVENT } from '../api/axios';
+import toast from 'react-hot-toast';
 
 const AuthContext = createContext(null);
 
@@ -19,6 +20,16 @@ export const AuthProvider = ({ children }) => {
       }
     };
     fetchMe();
+
+    // Any non-auth 401 means the session was revoked (logout elsewhere, suspension, password change)
+    const onExpired = () => {
+      setUser((current) => {
+        if (current) toast.error('Your session has ended. Please sign in again.', { id: 'session-expired' });
+        return null;
+      });
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
   }, []);
 
   const login = async (email, password) => {

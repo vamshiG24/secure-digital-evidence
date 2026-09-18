@@ -1,131 +1,31 @@
 require('dotenv').config();
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const mongoose = require('mongoose');
-const cors = require('cors');
-const helmet = require('helmet');
-const morgan = require('morgan');
-const path = require('path');
-const cookieParser = require('cookie-parser');
 const connectDB = require('./config/db');
 const { connectRedis } = require('./config/redis');
+const createApp = require('./config/createApp');
 
-// Connect to Database
+const REQUIRED_ENV = ['MONGO_URI', 'JWT_SECRET'];
+const missing = REQUIRED_ENV.filter((key) => !process.env[key]);
+if (missing.length) {
+    console.error(`Missing required environment variables: ${missing.join(', ')}`);
+    process.exit(1);
+}
+
 connectDB();
 connectRedis();
 
-const app = express();
-
-// Trust reverse proxy (e.g. Vercel, Render, Nginx) so req.ip gets the real user IP
-app.set('trust proxy', true);
-
-const server = http.createServer(app);
-
-// Socket.io Setup
-const allowedOrigins = [
-    "http://localhost",
-    "http://localhost:5173",
-    "http://localhost:5174",
-    "http://localhost:5175",
-    "http://localhost:5176"
-];
-
-// Add production frontend URL if set in environment
-if (process.env.FRONTEND_URL) {
-    // Trim to remove accidental spaces/newlines which break CORS
-    const productionUrl = process.env.FRONTEND_URL.trim();
-    allowedOrigins.push(productionUrl);
-    // Also add the non-www or www version to be safe
-    if (productionUrl.includes('www.')) {
-        allowedOrigins.push(productionUrl.replace('www.', ''));
-    }
-}
-
-console.log("Allowed Origins for CORS:", allowedOrigins);
-
-const io = new Server(server, {
-    cors: {
-        origin: allowedOrigins,
-        methods: ["GET", "POST", "PUT", "DELETE"],
-        credentials: true
-    },
-});
-
-// Middleware
-const os = require('os');
-const SERVER_ID = os.hostname();
-
-app.use((req, res, next) => {
-    console.log(`[${SERVER_ID}] Handling request: ${req.method} ${req.url}`);
-    res.setHeader('X-Server-Name', SERVER_ID);
-    next();
-});
-
-app.use(express.json());
-app.use(cookieParser());
-app.use(cors({
-    origin: (origin, callback) => {
-        // Allow requests with no origin (like mobile apps or curl requests)
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.indexOf(origin) === -1) {
-            console.log("BLOCKED BY CORS -> Origin:", origin); // Log the blocked origin
-            var msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-            return callback(new Error(msg), false);
-        }
-        return callback(null, true);
-    },
-    credentials: true
-}));
-app.use(helmet());
-app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
-
-// Static folder for uploads
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// Routes
-app.use('/api/users', require('./routes/userRoutes'));
-app.use('/api/cases', require('./routes/caseRoutes'));
-app.use('/api/evidence', require('./routes/evidenceRoutes'));
-app.use('/api/notifications', require('./routes/notificationRoutes'));
-app.use('/api/logs', require('./routes/auditRoutes'));
-app.use('/api/rag', require('./routes/ragRoutes'));
-app.use('/api/search', require('./routes/omniRoutes'));
-
-
-
-// Socket.io Connection
-io.on('connection', (socket) => {
-    console.log('A user connected:', socket.id);
-
-    // Join a room based on user ID (passed from client)
-    socket.on('join_room', (userId) => {
-        socket.join(userId);
-        console.log(`User ${userId} joined room ${userId}`);
-    });
-
-    // Join a room based on case ID (passed from client)
-    socket.on('join_case_room', (caseId) => {
-        socket.join(caseId);
-        console.log(`User socket ${socket.id} joined case room ${caseId}`);
-    });
-
-    socket.on('disconnect', () => {
-        console.log('User disconnected:', socket.id);
-    });
-});
-
-// Make io accessible globally or pass it to routes
-app.set('socketio', io);
-
-// Error Handling Middleware
-app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({ message: 'Server Error', error: err.message });
+const { server } = createApp({
+    name: 'api-gateway',
+    withSockets: true,
+    routes: [
+        ['/api/users', require('./routes/userRoutes')],
+        ['/api/cases', require('./routes/caseRoutes')],
+        ['/api/evidence', require('./routes/evidenceRoutes')],
+        ['/api/notifications', require('./routes/notificationRoutes')],
+        ['/api/logs', require('./routes/auditRoutes')],
+        ['/api/rag', require('./routes/ragRoutes')],
+        ['/api/search', require('./routes/omniRoutes')]
+    ]
 });
 
 const PORT = process.env.PORT || 5000;
-
-server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+server.listen(PORT, () => console.log(`API gateway running on port ${PORT}`));

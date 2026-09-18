@@ -7,37 +7,28 @@ const {
     getUsers,
     updateUserProfile,
     verifyLoginOTP,
-    requestEnable2FA,
-    confirmEnable2FA,
-    disable2FA,
-    logoutUser
+    logoutUser,
+    adminUpdateUser,
+    adminDeleteUser
 } = require('../controllers/userController');
 const { protect, authorize } = require('../middlewares/authMiddleware');
 const rateLimiter = require('../middlewares/rateLimiter');
 
-// Rate limiters for sensitive authentication routes
-const loginLimiter = rateLimiter({
-    windowMs: 60 * 1000, // 1 minute
-    max: 5,
-    message: 'Too many login attempts. Please try again after 1 minute.'
-});
+const registerLimiter = rateLimiter({ windowMs: 15 * 60 * 1000, max: 5, message: 'Too many accounts created from this address. Try again later.' });
+const loginLimiter = rateLimiter({ windowMs: 60 * 1000, max: 5, message: 'Too many login attempts. Please try again after 1 minute.' });
+const otpLimiter = rateLimiter({ windowMs: 5 * 60 * 1000, max: 5, message: 'Too many verification attempts. Please request a new code.' });
 
-const otpLimiter = rateLimiter({
-    windowMs: 60 * 1000, // 1 minute
-    max: 5,
-    message: 'Too many OTP verification attempts. Please try again after 1 minute.'
-});
-
-router.post('/', registerUser);
+router.post('/', registerLimiter, registerUser);
 router.post('/login', loginLimiter, loginUser);
 router.post('/verify-login-otp', otpLimiter, verifyLoginOTP);
 router.post('/logout', protect, logoutUser);
-router.post('/2fa/request-enable', protect, requestEnable2FA);
-router.post('/2fa/confirm-enable', protect, confirmEnable2FA);
-router.post('/2fa/disable', protect, disable2FA);
 
 router.get('/me', protect, getMe);
 router.put('/profile', protect, updateUserProfile);
 router.get('/', protect, authorize('admin', 'investigator'), getUsers);
+
+router.route('/:id')
+    .put(protect, authorize('admin'), adminUpdateUser)
+    .delete(protect, authorize('admin'), adminDeleteUser);
 
 module.exports = router;

@@ -1,321 +1,298 @@
+const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const AuditLog = require('../models/AuditLog');
-const jwt = require('jsonwebtoken');
 const { getRedisClient } = require('../config/redis');
+const { sendOTP } = require('../services/emailService');
 
-// Generate JWT
-const generateToken = (id) => {
-    return jwt.sign({ id }, process.env.JWT_SECRET, {
-        expiresIn: '30d',
-    });
-};
+const OTP_TTL_MS = 5 * 60 * 1000;
+const TOKEN_TTL_DAYS = 7;
 
-// Set token in HTTP-only Cookie
+const generateToken = (id) =>
+    jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: `${TOKEN_TTL_DAYS}d` });
+
+const cookieOptions = () => ({
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict'
+});
+
 const sendTokenCookie = (res, token) => {
-    res.cookie('token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
-    });
+    res.cookie('token', token, { ...cookieOptions(), maxAge: TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000 });
 };
 
-// @desc    Register new user
+// Cryptographically secure 6-digit code
+const generateOtp = () => String(crypto.randomInt(100000, 1000000));
+
+const audit = (req, user, action, details) =>
+    AuditLog.create({
+        user: user ? user._id : null,
+        action,
+        details,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+    }).catch(err => console.error('Audit log error:', err.message));
+
+const publicUser = (user) => ({
+    _id: user._id,
+    id: user._id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    avatarUrl: user.avatarUrl,
+    department: user.department,
+    badgeId: user.badgeId,
+    bio: user.bio,
+    status: user.status,
+    createdAt: user.createdAt
+});
+
+// @desc    Register new user (always created as investigator; admins promote later)
 // @route   POST /api/users
 // @access  Public
 exports.registerUser = async (req, res) => {
-    const { name, email, password, role } = req.body;
+    const { name, email, password } = req.body;
 
     try {
-        const userExists = await User.findOne({ email });
-
-        if (userExists) {
-            return res.status(400).json({ message: 'User already exists' });
+        if (!name || !email || !password) {
+            return res.status(400).json({ message: 'Name, email and password are required' });
         }
 
-        // Generate 6-digit OTP for registration
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const userExists = await User.findOne({ email: String(email).toLowerCase() });
+        if (userExists) {
+            return res.status(400).json({ message: 'An account with this email already exists' });
+        }
 
+        const otp = generateOtp();
         const user = await User.create({
             name,
             email,
             password,
-            role, // Optional, defaults to 'investigator' if not provided
             otpCode: otp,
-            otpExpires: Date.now() + 5 * 60 * 1000 // 5 minutes expiration
+            otpExpires: Date.now() + OTP_TTL_MS
         });
 
-        if (user) {
-            // Send OTP email
-            const { sendOTP } = require('../services/emailService');
-            await sendOTP(user.email, otp, 'registration');
+        await sendOTP(user.email, otp, 'registration');
+        await audit(req, user, 'USER_REGISTER', `User registered (pending verification): ${user.email}`);
 
-            // Audit Log
-            await AuditLog.create({
-                user: user._id,
-                action: 'USER_REGISTER',
-                details: `User registered (pending verification): ${user.email} as ${user.role}`,
-                ipAddress: req.ip,
-                userAgent: req.get('User-Agent')
-            });
-
-            res.status(201).json({
-                requires2FA: true,
-                email: user.email
-            });
-        } else {
-            res.status(400).json({ message: 'Invalid user data' });
-        }
+        res.status(201).json({ requires2FA: true, email: user.email });
     } catch (error) {
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({ message: Object.values(error.errors).map(e => e.message).join(', ') });
+        }
         res.status(500).json({ message: error.message });
     }
 };
 
-// @desc    Authenticate a user
+// @desc    Authenticate a user (step 1: password → OTP challenge)
 // @route   POST /api/users/login
 // @access  Public
 exports.loginUser = async (req, res) => {
     const { email, password } = req.body;
 
     try {
-        const user = await User.findOne({ email });
+        const user = await User.findOne({ email: String(email || '').toLowerCase() }).select('+password +otpCode');
 
-        if (user && (await user.matchPassword(password))) {
-            // Generate 6-digit OTP - Enforced globally for all logins
-            const otp = Math.floor(100000 + Math.random() * 900000).toString();
-            user.otpCode = otp;
-            user.otpExpires = Date.now() + 5 * 60 * 1000; // 5 minutes expiration
-            await user.save();
-
-            // Send OTP email
-            const { sendOTP } = require('../services/emailService');
-            await sendOTP(user.email, otp);
-
-            // Audit Log MFA Request
-            await AuditLog.create({
-                user: user._id,
-                action: 'MFA_CHALLENGE',
-                details: `MFA challenge requested for login: ${user.email}`,
-                ipAddress: req.ip,
-                userAgent: req.get('User-Agent')
-            });
-
-            return res.status(200).json({
-                requires2FA: true,
-                email: user.email
-            });
-        } else {
-            res.status(401).json({ message: 'Invalid email or password' });
+        // Same response for unknown email and wrong password to avoid user enumeration
+        if (!user || !(await user.matchPassword(password || ''))) {
+            return res.status(401).json({ message: 'Invalid email or password' });
         }
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
 
-// @desc    Get user data
-// @route   GET /api/users/me
-// @access  Private
-exports.getMe = async (req, res) => {
-    try {
-        const user = await User.findById(req.user.id);
-        res.status(200).json({
-            id: user._id,
-            name: user.name,
-            email: user.email,
-            role: user.role,
-            twoFactorEnabled: true // Always return true since 2FA is globally enforced
-        });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
-
-// @desc    Get all users (for admin assignment)
-// @route   GET /api/users
-// @access  Private (Admin)
-exports.getUsers = async (req, res) => {
-    try {
-        const users = await User.find({}).select('-password');
-        // Map users to always have twoFactorEnabled as true
-        const mappedUsers = users.map(u => {
-            const obj = u.toObject();
-            obj.twoFactorEnabled = true;
-            return obj;
-        });
-        res.json(mappedUsers);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
-
-// @desc    Update user profile
-// @route   PUT /api/users/profile
-// @access  Private
-exports.updateUserProfile = async (req, res) => {
-    try {
-        const user = await User.findById(req.user.id);
-
-        if (user) {
-            user.name = req.body.name || user.name;
-            user.email = req.body.email || user.email;
-            user.avatarUrl = req.body.avatarUrl !== undefined ? req.body.avatarUrl : user.avatarUrl;
-            user.department = req.body.department || user.department;
-            user.badgeId = req.body.badgeId !== undefined ? req.body.badgeId : user.badgeId;
-            user.bio = req.body.bio !== undefined ? req.body.bio : user.bio;
-            if (req.body.password) {
-                user.password = req.body.password;
-            }
-
-            const updatedUser = await user.save();
-
-            // Audit Log
-            await AuditLog.create({
-                user: user._id,
-                action: 'USER_UPDATE',
-                details: `User updated profile details`,
-                ipAddress: req.ip,
-                userAgent: req.get('User-Agent')
-            });
-
-            const token = generateToken(updatedUser._id);
-            sendTokenCookie(res, token);
-
-            res.json({
-                _id: updatedUser._id,
-                name: updatedUser.name,
-                email: updatedUser.email,
-                role: updatedUser.role,
-                avatarUrl: updatedUser.avatarUrl,
-                department: updatedUser.department,
-                badgeId: updatedUser.badgeId,
-                bio: updatedUser.bio,
-                status: updatedUser.status,
-                twoFactorEnabled: true,
-                token,
-            });
-        } else {
-            res.status(404).json({ message: 'User not found' });
+        if (user.status !== 'active') {
+            await audit(req, user, 'LOGIN_BLOCKED', `Login blocked for ${user.status} account: ${user.email}`);
+            return res.status(403).json({ message: 'This account is suspended. Contact an administrator.' });
         }
+
+        const otp = generateOtp();
+        user.otpCode = otp;
+        user.otpExpires = Date.now() + OTP_TTL_MS;
+        await user.save();
+
+        await sendOTP(user.email, otp);
+        await audit(req, user, 'MFA_CHALLENGE', `MFA challenge requested for login: ${user.email}`);
+
+        res.status(200).json({ requires2FA: true, email: user.email });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };
 
-// @desc    Verify login OTP code
+// @desc    Verify OTP (step 2) and issue session
 // @route   POST /api/users/verify-login-otp
 // @access  Public
 exports.verifyLoginOTP = async (req, res) => {
     const { email, otp } = req.body;
 
     try {
-        const user = await User.findOne({ email });
+        const user = await User.findOne({ email: String(email || '').toLowerCase() }).select('+otpCode');
 
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
-        }
+        const supplied = String(otp || '');
+        const stored = user?.otpCode || '';
+        const codeMatches =
+            supplied.length === stored.length && stored.length > 0 &&
+            crypto.timingSafeEqual(Buffer.from(supplied), Buffer.from(stored));
 
-        if (!user.otpCode || user.otpCode !== otp || !user.otpExpires || user.otpExpires < Date.now()) {
+        if (!user || !codeMatches || !user.otpExpires || user.otpExpires < Date.now()) {
             return res.status(401).json({ message: 'Invalid or expired verification code' });
         }
 
-        // Clear OTP code fields
+        if (user.status !== 'active') {
+            return res.status(403).json({ message: 'This account is suspended. Contact an administrator.' });
+        }
+
         user.otpCode = undefined;
         user.otpExpires = undefined;
         await user.save();
 
-        // Audit Log login
-        await AuditLog.create({
-            user: user._id,
-            action: 'USER_LOGIN',
-            details: `User logged in via 2FA: ${user.email}`,
-            ipAddress: req.ip,
-            userAgent: req.get('User-Agent')
-        });
+        await audit(req, user, 'USER_LOGIN', `User logged in via 2FA: ${user.email}`);
 
         const token = generateToken(user._id);
         sendTokenCookie(res, token);
-
-        res.json({
-            _id: user._id,
-            name: user.name,
-            email: user.email,
-            role: user.role,
-            twoFactorEnabled: true,
-            token,
-        });
+        res.json(publicUser(user));
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };
 
-// @desc    Request to enable 2FA (sends OTP)
-// @route   POST /api/users/2fa/request-enable
+// @desc    Get current user
+// @route   GET /api/users/me
 // @access  Private
-exports.requestEnable2FA = async (req, res) => {
-    res.status(400).json({ message: 'Two-Factor Authentication is enforced globally and cannot be toggled.' });
+exports.getMe = async (req, res) => {
+    res.status(200).json(publicUser(req.user));
 };
 
-// @desc    Confirm enabling 2FA
-// @route   POST /api/users/2fa/confirm-enable
-// @access  Private
-exports.confirmEnable2FA = async (req, res) => {
-    res.status(400).json({ message: 'Two-Factor Authentication is enforced globally and cannot be toggled.' });
+// @desc    Get all users
+// @route   GET /api/users
+// @access  Private (Admin, Investigator — needed for case assignment)
+exports.getUsers = async (req, res) => {
+    try {
+        const isAdmin = req.user.role === 'admin';
+        const users = await User.find(isAdmin ? {} : { status: 'active' }).sort({ createdAt: -1 });
+        // Non-admins only need enough to pick an assignee; keep emails and status admin-only
+        const directoryEntry = (u) => ({ _id: u._id, id: u._id, name: u.name, role: u.role, avatarUrl: u.avatarUrl, department: u.department, badgeId: u.badgeId });
+        res.json(users.map(isAdmin ? publicUser : directoryEntry));
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
 };
 
-// @desc    Disable 2FA
-// @route   POST /api/users/2fa/disable
+// @desc    Update own profile
+// @route   PUT /api/users/profile
 // @access  Private
-exports.disable2FA = async (req, res) => {
-    res.status(400).json({ message: 'Two-Factor Authentication is enforced globally and cannot be disabled.' });
+exports.updateUserProfile = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).select('+password');
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        const { name, avatarUrl, department, badgeId, bio, password, currentPassword } = req.body;
+
+        if (name) user.name = name;
+        if (avatarUrl !== undefined) user.avatarUrl = avatarUrl;
+        if (department) user.department = department;
+        if (badgeId !== undefined) user.badgeId = badgeId;
+        if (bio !== undefined) user.bio = bio;
+
+        if (password) {
+            if (!currentPassword || !(await user.matchPassword(currentPassword))) {
+                return res.status(400).json({ message: 'Current password is incorrect' });
+            }
+            user.password = password;
+        }
+
+        const updated = await user.save();
+        await audit(req, user, 'USER_UPDATE', `User updated profile details${password ? ' (password changed)' : ''}`);
+
+        // A password change invalidates every other session; re-issue this one
+        if (password) sendTokenCookie(res, generateToken(updated._id));
+
+        res.json(publicUser(updated));
+    } catch (error) {
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({ message: Object.values(error.errors).map(e => e.message).join(', ') });
+        }
+        res.status(500).json({ message: error.message });
+    }
 };
 
-// @desc    Logout user / Clear Cookie and Blocklist JWT token
+// @desc    Admin: update another user's role / status / details
+// @route   PUT /api/users/:id
+// @access  Private (Admin)
+exports.adminUpdateUser = async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        const { role, status, name, department, badgeId, bio } = req.body;
+        const isSelf = String(user._id) === String(req.user._id);
+
+        if (role && ['admin', 'investigator', 'analyst'].includes(role)) {
+            if (isSelf && role !== 'admin') {
+                return res.status(400).json({ message: 'You cannot remove your own admin role' });
+            }
+            user.role = role;
+        }
+        if (status && ['active', 'suspended', 'inactive'].includes(status)) {
+            if (isSelf && status !== 'active') {
+                return res.status(400).json({ message: 'You cannot suspend your own account' });
+            }
+            user.status = status;
+        }
+        if (name) user.name = name;
+        if (department) user.department = department;
+        if (badgeId !== undefined) user.badgeId = badgeId;
+        if (bio !== undefined) user.bio = bio;
+
+        await user.save();
+        await audit(req, req.user, 'ADMIN_UPDATE_USER', `Admin updated user ${user.email} (role=${user.role}, status=${user.status})`);
+
+        res.json(publicUser(user));
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Admin: delete a user
+// @route   DELETE /api/users/:id
+// @access  Private (Admin)
+exports.adminDeleteUser = async (req, res) => {
+    try {
+        if (String(req.params.id) === String(req.user._id)) {
+            return res.status(400).json({ message: 'You cannot delete your own account' });
+        }
+        const user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        await user.deleteOne();
+        await audit(req, req.user, 'ADMIN_DELETE_USER', `Admin deleted user ${user.email}`);
+        res.json({ message: 'User removed' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Logout: blocklist JWT and clear cookie
 // @route   POST /api/users/logout
 // @access  Private
 exports.logoutUser = async (req, res) => {
     try {
-        let token;
-        if (req.cookies && req.cookies.token) {
-            token = req.cookies.token;
-        } else if (
-            req.headers.authorization &&
-            req.headers.authorization.startsWith('Bearer')
-        ) {
-            token = req.headers.authorization.split(' ')[1];
-        }
+        const token = req.cookies?.token ||
+            (req.headers.authorization?.startsWith('Bearer') ? req.headers.authorization.split(' ')[1] : null);
 
         if (token) {
             const client = getRedisClient();
-            if (client) {
-                const decoded = jwt.decode(token);
-                if (decoded && decoded.exp) {
-                    const ttl = decoded.exp - Math.floor(Date.now() / 1000);
-                    if (ttl > 0) {
-                        await client.set(`blocklist:${token}`, '1', { EX: ttl });
-                        console.log(`Token blocklisted for logout. Remaining TTL: ${ttl} seconds`);
-                    }
+            const decoded = jwt.decode(token);
+            if (client && decoded?.exp) {
+                const ttl = decoded.exp - Math.floor(Date.now() / 1000);
+                if (ttl > 0) {
+                    // Key on a digest so the raw token never sits in Redis
+                    const digest = crypto.createHash('sha256').update(token).digest('hex');
+                    await client.set(`blocklist:${digest}`, '1', { EX: ttl });
                 }
             }
         }
 
-        // Clear cookie
-        res.clearCookie('token', {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict'
-        });
-
-        // Audit Log
-        if (req.user) {
-            await AuditLog.create({
-                user: req.user._id,
-                action: 'USER_LOGOUT',
-                details: `User logged out: ${req.user.email}`,
-                ipAddress: req.ip,
-                userAgent: req.get('User-Agent')
-            });
-        }
-
+        res.clearCookie('token', cookieOptions());
+        await audit(req, req.user, 'USER_LOGOUT', `User logged out: ${req.user.email}`);
         res.status(200).json({ message: 'Logged out successfully' });
     } catch (error) {
         res.status(500).json({ message: error.message });

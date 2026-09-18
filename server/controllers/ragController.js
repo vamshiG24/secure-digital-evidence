@@ -3,87 +3,85 @@ const Evidence = require('../models/Evidence');
 const AuditLog = require('../models/AuditLog');
 const { retrieveRelevantChunks, extractTextFromBuffer } = require('../services/ragService');
 const { runInvestigatorAgent, runRagQueryAgent, runReportSynthesizerAgent } = require('../services/forensicAgents');
-const https = require('https');
+const { loadCaseForUser } = require('../utils/caseAccess');
+const { getSignedUrl, fetchBuffer } = require('../utils/storage');
+const { mapWithConcurrency } = require('../utils/concurrency');
+const { getRedisClient } = require('../config/redis');
+
+const MAX_INLINE_IMAGE_BYTES = 4 * 1024 * 1024;
+const TEXT_CACHE_TTL = 60 * 60; // 1h
 
 /**
- * Helper to fetch file content buffer from Cloudinary URL or local storage.
+ * Download + extract text for an evidence item, caching the extracted text in
+ * Redis keyed by file hash so repeated queries do not re-download every file.
  */
-const fetchFileBuffer = (url) => {
-    return new Promise((resolve) => {
-        if (!url || !url.startsWith('http')) return resolve(null);
-        https.get(url, (res) => {
-            if (res.statusCode !== 200) return resolve(null);
-            const chunks = [];
-            res.on('data', chunk => chunks.push(chunk));
-            res.on('end', () => resolve(Buffer.concat(chunks)));
-        }).on('error', () => resolve(null));
-    });
+const loadEvidenceContent = async (item, { includeMedia = false } = {}) => {
+    const client = getRedisClient();
+    const cacheKey = `rag:text:${item.fileHash}`;
+    let text = null;
+
+    if (client) {
+        try { text = await client.get(cacheKey); } catch { /* cache miss */ }
+    }
+
+    let buffer = null;
+    if (text === null || includeMedia) {
+        buffer = await fetchBuffer(getSignedUrl(item));
+    }
+
+    if (text === null) {
+        text = buffer ? await extractTextFromBuffer(buffer, item.fileType, item.fileName) : '';
+        if (client) {
+            try { await client.set(cacheKey, text, { EX: TEXT_CACHE_TTL }); } catch { /* ignore */ }
+        }
+    }
+
+    let mediaPart = null;
+    const isImage = /^image\//.test(item.fileType || '') || /\.(png|jpe?g|webp|gif)$/i.test(item.fileName || '');
+    if (includeMedia && buffer && isImage && buffer.length <= MAX_INLINE_IMAGE_BYTES) {
+        mediaPart = { inlineData: { data: buffer.toString('base64'), mimeType: item.fileType || 'image/png' } };
+    }
+
+    return { text: `${item.description || ''}\n${text}`.trim(), mediaPart };
 };
 
-// @desc    RAG Query over Case Evidence
+// @desc    RAG query over case evidence
 // @route   POST /api/rag/query
-// @access  Private
+// @access  Private (case members)
 exports.queryCaseEvidence = async (req, res) => {
     try {
         const { caseId, query } = req.body;
-
         if (!caseId || !query) {
             return res.status(400).json({ message: 'caseId and query are required' });
         }
 
-        const caseItem = await Case.findById(caseId);
-        if (!caseItem) {
-            return res.status(404).json({ message: 'Case not found' });
-        }
+        const caseItem = await loadCaseForUser(Case, req, res, caseId);
+        if (!caseItem) return;
 
         const evidenceItems = await Evidence.find({ caseId }).populate('uploader', 'name email');
 
-        // Extract text content and media parts for each evidence file
-        const processedItems = await Promise.all(evidenceItems.map(async (item) => {
-            let text = item.description || '';
-            let mediaPart = null;
-
-            if (item.filePath) {
-                const buf = await fetchFileBuffer(item.filePath);
-                if (buf) {
-                    const extracted = await extractTextFromBuffer(buf, item.fileType, item.fileName);
-                    text += '\n' + extracted;
-
-                    // If image, attach inlineData base64 part for Gemini Vision AI
-                    if (item.fileName && item.fileName.match(/\.(png|jpg|jpeg|webp|gif)$/i)) {
-                        mediaPart = {
-                            inlineData: {
-                                data: buf.toString('base64'),
-                                mimeType: item.fileType || 'image/png'
-                            }
-                        };
-                    }
-                }
-            }
+        const processedItems = await mapWithConcurrency(evidenceItems, 4, async (item) => {
+            const { text, mediaPart } = await loadEvidenceContent(item, { includeMedia: true });
             return {
                 _id: item._id,
                 fileName: item.fileName,
                 fileHash: item.fileHash,
                 uploader: item.uploader ? item.uploader.name : 'Unknown',
                 textContent: text,
-                mediaPart: mediaPart
+                mediaPart
             };
-        }));
+        });
 
-        // Retrieve top-4 relevant chunks
-        const topChunks = retrieveRelevantChunks(query, processedItems, 4);
+        const topChunks = retrieveRelevantChunks(String(query).slice(0, 2000), processedItems, 4);
+        const ragResult = await runRagQueryAgent(String(query).slice(0, 2000), topChunks, caseItem.title);
 
-        // Run RAG Query Agent
-        const ragResult = await runRagQueryAgent(query, topChunks, caseItem.title);
-
-        // Audit Log
-        await AuditLog.create({
-            user: req.user ? req.user._id : null,
+        AuditLog.create({
+            user: req.user._id,
             action: 'RAG_EVIDENCE_QUERY',
-            details: `AI RAG query for case "${caseItem.title}": "${query}"`,
+            details: `AI RAG query for case "${caseItem.title}": "${String(query).slice(0, 200)}"`,
             ipAddress: req.ip,
             userAgent: req.get('User-Agent')
-        }).catch(err => console.error(err));
+        }).catch(err => console.error(err.message));
 
         res.status(200).json(ragResult);
     } catch (error) {
@@ -92,50 +90,46 @@ exports.queryCaseEvidence = async (req, res) => {
     }
 };
 
-// @desc    Run Forensic Investigator Agent on Case
+// @desc    Forensic investigator agent (entity extraction + AI insights)
 // @route   GET /api/rag/case/:caseId/investigate
-// @access  Private
+// @access  Private (case members)
 exports.investigateCase = async (req, res) => {
     try {
-        const caseId = req.params.caseId;
-        const caseItem = await Case.findById(caseId);
-        if (!caseItem) {
-            return res.status(404).json({ message: 'Case not found' });
-        }
+        const caseItem = await loadCaseForUser(Case, req, res, req.params.caseId);
+        if (!caseItem) return;
 
-        const evidenceItems = await Evidence.find({ caseId });
-        let combinedText = `Case Title: ${caseItem.title}\nDescription: ${caseItem.description}\n`;
+        const evidenceItems = await Evidence.find({ caseId: caseItem._id });
+        const contents = await mapWithConcurrency(evidenceItems, 4, async (item) => {
+            const { text } = await loadEvidenceContent(item);
+            return `\nFile: ${item.fileName}\n${text}\n`;
+        });
 
-        for (const item of evidenceItems) {
-            combinedText += `\nFile: ${item.fileName}\nDescription: ${item.description || ''}\n`;
-            if (item.filePath) {
-                const buf = await fetchFileBuffer(item.filePath);
-                if (buf) {
-                    const extracted = await extractTextFromBuffer(buf, item.fileType, item.fileName);
-                    combinedText += extracted + '\n';
-                }
-            }
-        }
-
+        const combinedText = `Case Title: ${caseItem.title}\nDescription: ${caseItem.description}\n${contents.join('')}`;
         const analysis = await runInvestigatorAgent(combinedText);
+
+        AuditLog.create({
+            user: req.user._id,
+            action: 'AI_FORENSIC_INSPECTION',
+            details: `Forensic inspector run on case "${caseItem.title}"`,
+            ipAddress: req.ip,
+            userAgent: req.get('User-Agent')
+        }).catch(err => console.error(err.message));
+
         res.status(200).json(analysis);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };
 
-// @desc    Generate Forensic Case Report
+// @desc    Generate forensic case report (AI-synthesised when configured)
 // @route   POST /api/rag/case/:caseId/report
-// @access  Private
+// @access  Private (case members)
 exports.generateCaseReport = async (req, res) => {
     try {
-        const caseId = req.params.caseId;
-        const caseItem = await Case.findById(caseId).populate('assignedTo createdBy', 'name email');
-        if (!caseItem) {
-            return res.status(404).json({ message: 'Case not found' });
-        }
+        const caseItem = await loadCaseForUser(Case, req, res, req.params.caseId, 'assignedTo createdBy');
+        if (!caseItem) return;
 
-        const evidenceItems = await Evidence.find({ caseId }).populate('uploader', 'name email');
+        const evidenceItems = await Evidence.find({ caseId: caseItem._id }).populate('uploader', 'name email');
         const reportMarkdown = await runReportSynthesizerAgent(caseItem, evidenceItems);
 
         res.status(200).json({ report: reportMarkdown });

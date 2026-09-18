@@ -8,10 +8,10 @@ const nodemailer = require('nodemailer');
  * @param {string} [purpose='login'] - Purpose of the OTP ('login' or 'registration')
  */
 const sendOTP = async (email, otp, purpose = 'login') => {
-    // 1. Always log the OTP to the console for development/demo ease
-    console.log(`\n==================================================`);
-    console.log(`[DEV/SECURITY DEBUG] OTP Code (${purpose}) for ${email} is: ${otp}`);
-    console.log(`==================================================\n`);
+    // Log the OTP only outside production so local demos work without SMTP.
+    if (process.env.NODE_ENV !== 'production') {
+        console.log(`[DEV] OTP (${purpose}) for ${email}: ${otp}`);
+    }
 
     // 2. Read SMTP settings from environment variables
     const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, EMAIL_FROM } = process.env;
@@ -67,9 +67,14 @@ const sendOTP = async (email, otp, purpose = 'login') => {
             console.log(`[emailService] Verification email sent successfully to ${email}`);
         } catch (error) {
             console.error(`[emailService] Failed to send email to ${email}:`, error.message);
+            if (process.env.NODE_ENV === 'production') {
+                throw new Error('Unable to send verification email. Please try again later.');
+            }
         }
+    } else if (process.env.NODE_ENV === 'production') {
+        throw new Error('Email service is not configured');
     } else {
-        console.log(`[emailService] SMTP config missing from env variables. Real email not sent.`);
+        console.log('[emailService] SMTP not configured; OTP printed above for local testing.');
     }
 };
 

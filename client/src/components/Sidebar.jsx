@@ -1,177 +1,128 @@
-import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useAuth } from '../context/AuthContext';
-import {
-  Shield, LayoutDashboard, FolderOpen, FileText,
-  Bell, ClipboardList, Users, LogOut, Settings,
-  ChevronRight, Activity, Sparkles, User
-} from 'lucide-react';
 import toast from 'react-hot-toast';
-import API from '../api/axios';
+import {
+  Shield, LayoutDashboard, FolderOpen, FileText, Bell, ClipboardList,
+  Users, LogOut, Sparkles, PanelLeftClose, PanelLeftOpen, User, X
+} from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import useNotifications from '../hooks/useNotifications.jsx';
+import { Avatar } from './ui';
+import { spring } from './ui/motion';
 
-const navItems = [
+const NAV = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/cases', icon: FolderOpen, label: 'Cases' },
   { to: '/evidence', icon: FileText, label: 'Evidence Vault' },
-  { to: '/ai-studio', icon: Sparkles, label: 'AI Forensic Studio', badgeText: 'NEW' },
+  { to: '/ai-studio', icon: Sparkles, label: 'AI Forensic Studio', tag: 'AI' },
   { to: '/notifications', icon: Bell, label: 'Notifications', badge: true },
-  { to: '/audit-logs', icon: ClipboardList, label: 'Audit Logs', adminOnly: true },
-  { to: '/users', icon: Users, label: 'User Directory', adminOnly: true },
+  { to: '/audit-logs', icon: ClipboardList, label: 'Audit Logs', roles: ['admin'] },
+  { to: '/users', icon: Users, label: 'User Directory', roles: ['admin', 'investigator'] },
 ];
 
-export default function Sidebar() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
-  const [unread, setUnread] = useState(0);
+const ROLE_TONE = { admin: 'danger', investigator: 'primary', analyst: 'success' };
 
-  useEffect(() => {
-    const fetchNotifs = async () => {
-      try {
-        const { data } = await API.get('/api/notifications');
-        setUnread(data.filter(n => !n.isRead).length);
-      } catch {}
-    };
-    if (user) fetchNotifs();
-    const interval = setInterval(fetchNotifs, 30000);
-    return () => clearInterval(interval);
-  }, [user]);
+export default function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobile }) {
+  const { user, logout } = useAuth();
+  const { unreadCount } = useNotifications();
+  const navigate = useNavigate();
 
   const handleLogout = async () => {
     try {
       await logout();
-      toast.success('Logged out successfully');
+      toast.success('Signed out');
       navigate('/login');
     } catch {
       toast.error('Logout failed');
     }
   };
 
-  const visibleItems = navItems.filter(item =>
-    !item.adminOnly || user?.role === 'admin'
-  );
-
-  const roleColors = {
-    admin: { bg: 'rgba(239,68,68,0.1)', color: '#dc2626', border: 'rgba(239,68,68,0.2)' },
-    investigator: { bg: 'rgba(59,130,246,0.1)', color: '#1d4ed8', border: 'rgba(59,130,246,0.2)' },
-    analyst: { bg: 'rgba(34,197,94,0.1)', color: '#16a34a', border: 'rgba(34,197,94,0.2)' },
-  };
-  const roleStyle = roleColors[user?.role] || roleColors.investigator;
+  const visible = NAV.filter(item => !item.roles || item.roles.includes(user?.role));
+  const tone = ROLE_TONE[user?.role] || 'primary';
 
   return (
-    <motion.aside className="sidebar"
-      initial={{ x: -260 }}
-      animate={{ x: 0 }}
-      transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}>
+    <>
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.div className="sidebar-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onCloseMobile} aria-hidden="true" />
+        )}
+      </AnimatePresence>
 
-      {/* Top gradient accent */}
-      <div style={{ height: 3, background: 'linear-gradient(90deg, #1d4ed8, #3b82f6, #06b6d4)', flexShrink: 0 }} />
+      <aside className="sidebar" data-collapsed={collapsed} data-open={mobileOpen} aria-label="Primary navigation">
+        <div style={{ height: 3, background: 'linear-gradient(90deg, var(--brand-600), var(--brand-400), var(--cyan-500))', flexShrink: 0 }} />
 
-      {/* Logo */}
-      <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid var(--border)' }}>
-        <motion.div style={{ display: 'flex', alignItems: 'center', gap: 12 }}
-          whileHover={{ x: 2 }} transition={{ type: 'spring', stiffness: 400 }}>
-          <div style={{
-            width: 40, height: 40, borderRadius: 12,
-            background: 'linear-gradient(135deg, #1d4ed8, #3b82f6)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 4px 16px rgba(29,78,216,0.3)',
-            flexShrink: 0,
-          }}>
-            <Shield size={20} color="white" />
-          </div>
-          <div>
-            <div style={{ fontFamily: "'Space Grotesk'", fontWeight: 700, fontSize: 15, color: '#0f172a', lineHeight: 1.2 }}>
-              SecureEvidence
-            </div>
-            <div style={{ fontSize: 11, color: '#64748b', fontWeight: 500 }}>Digital Forensics Platform</div>
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Nav */}
-      <nav style={{ flex: 1, overflowY: 'auto', padding: '12px 12px' }}>
-        <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '4px 8px 8px', marginBottom: 2 }}>
-          Navigation
-        </div>
-        {visibleItems.map((item, i) => (
-          <motion.div key={item.to}
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: i * 0.05, duration: 0.3 }}>
-            <NavLink
-              to={item.to}
-              style={({ isActive }) => ({
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: '9px 10px', borderRadius: 10, marginBottom: 2,
-                textDecoration: 'none', fontSize: 14, fontWeight: 500,
-                transition: 'all 0.2s ease', position: 'relative',
-                background: isActive ? 'linear-gradient(135deg, rgba(29,78,216,0.1), rgba(59,130,246,0.07))' : 'transparent',
-                color: isActive ? '#1d4ed8' : '#475569',
-                border: isActive ? '1px solid rgba(29,78,216,0.15)' : '1px solid transparent',
-              })}>
-              {({ isActive }) => (
-                <>
-                  {isActive && (
-                    <motion.div layoutId="nav-indicator"
-                      style={{
-                        position: 'absolute', left: 0, top: 4, bottom: 4,
-                        width: 3, borderRadius: 99,
-                        background: 'linear-gradient(180deg, #1d4ed8, #3b82f6)',
-                      }}
-                    />
-                  )}
-                  <item.icon size={17} style={{ flexShrink: 0, marginLeft: isActive ? 4 : 0, transition: 'margin 0.2s' }} />
-                  <span style={{ flex: 1 }}>{item.label}</span>
-                  {item.badgeText && (
-                    <span style={{
-                      background: 'linear-gradient(135deg, #06b6d4, #3b82f6)',
-                      color: 'white', fontSize: 9, fontWeight: 800,
-                      padding: '1px 6px', borderRadius: 99, letterSpacing: '0.05em'
-                    }}>
-                      {item.badgeText}
-                    </span>
-                  )}
-                  {item.badge && unread > 0 && (
-                    <motion.span
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      style={{
-                        background: 'linear-gradient(135deg, #1d4ed8, #3b82f6)',
-                        color: 'white', fontSize: 10, fontWeight: 700,
-                        padding: '1px 6px', borderRadius: 99,
-                        boxShadow: '0 2px 8px rgba(29,78,216,0.4)',
-                      }}>
-                      {unread}
-                    </motion.span>
-                  )}
-                  {isActive && <ChevronRight size={14} style={{ opacity: 0.5 }} />}
-                </>
-              )}
-            </NavLink>
+        {/* Brand */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: collapsed ? '16px 0' : '16px 18px', justifyContent: collapsed ? 'center' : 'flex-start', borderBottom: '1px solid var(--border)', minHeight: 64 }}>
+          <motion.div
+            whileHover={{ rotate: -6, scale: 1.05 }} transition={spring}
+            style={{ width: 38, height: 38, borderRadius: 11, flexShrink: 0, display: 'grid', placeItems: 'center', background: 'linear-gradient(135deg, var(--brand-600), var(--cyan-500))', boxShadow: '0 4px 14px var(--primary-glow)' }}
+          >
+            <Shield size={19} color="#fff" />
           </motion.div>
-        ))}
-      </nav>
+          {!collapsed && (
+            <div className="nav-label" style={{ lineHeight: 1.15, minWidth: 0 }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>SecureEvidence</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>Digital Forensics Platform</div>
+            </div>
+          )}
+          <button className="btn btn-ghost btn-icon btn-sm" onClick={onCloseMobile} aria-label="Close navigation" style={{ marginLeft: 'auto', display: 'none' }} data-mobile-only>
+            <X size={16} />
+          </button>
+        </div>
 
-      {/* Logout */}
-      <div style={{ padding: '12px 12px 16px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
-        <motion.button
-          whileHover={{ x: 2 }}
-          whileTap={{ scale: 0.97 }}
-          onClick={handleLogout}
-          style={{
-            width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-            padding: '9px 10px', borderRadius: 10, border: 'none', cursor: 'pointer',
-            background: 'transparent', color: '#64748b', fontSize: 14, fontWeight: 500,
-            transition: 'all 0.2s ease',
-            fontFamily: 'inherit',
-          }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.color = '#dc2626'; }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#64748b'; }}>
-          <LogOut size={17} />
-          Sign Out
-        </motion.button>
-      </div>
-    </motion.aside>
+        {/* Nav */}
+        <nav className="sidebar-nav">
+          {!collapsed && <div className="eyebrow nav-label" style={{ padding: '6px 10px 10px' }}>Workspace</div>}
+          {visible.map((item, i) => (
+            <motion.div key={item.to} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.03, ...spring }}>
+              <NavLink to={item.to} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`} title={collapsed ? item.label : undefined} aria-label={item.label}>
+                {({ isActive }) => (
+                  <>
+                    {isActive && (
+                      <motion.span layoutId="nav-active-bar" transition={spring} aria-hidden="true"
+                        style={{ position: 'absolute', left: -1, top: 8, bottom: 8, width: 3, borderRadius: 99, background: 'var(--primary)' }} />
+                    )}
+                    <span style={{ position: 'relative', display: 'inline-flex' }}>
+                      <item.icon size={18} strokeWidth={isActive ? 2.2 : 1.8} aria-hidden="true" />
+                      {item.badge && unreadCount > 0 && collapsed && (
+                        <span className="notif-dot" style={{ top: -4, right: -4 }} aria-hidden="true" />
+                      )}
+                    </span>
+                    <span className="nav-label" style={{ flex: 1 }}>{item.label}</span>
+                    {item.tag && <span className="nav-extra badge badge-purple" style={{ fontSize: 9.5, padding: '2px 6px' }}>{item.tag}</span>}
+                    {item.badge && unreadCount > 0 && (
+                      <span className="nav-extra" style={{ minWidth: 20, height: 20, padding: '0 6px', borderRadius: 99, display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700, background: 'var(--danger)', color: '#fff' }}>
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </span>
+                    )}
+                  </>
+                )}
+              </NavLink>
+            </motion.div>
+          ))}
+        </nav>
+
+        {/* Footer */}
+        <div style={{ padding: 12, borderTop: '1px solid var(--border)' }}>
+          <NavLink to="/profile" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`} style={{ padding: collapsed ? 8 : '8px 10px' }} title={collapsed ? 'My profile' : undefined} aria-label="My profile">
+            <Avatar name={user?.name} src={user?.avatarUrl} size={34} />
+            <span className="nav-label" style={{ minWidth: 0, flex: 1 }}>
+              <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.name}</span>
+              <span className={`badge badge-${tone}`} style={{ marginTop: 3, fontSize: 9.5, padding: '1px 6px' }}>{user?.role}</span>
+            </span>
+            <User size={15} className="nav-extra" style={{ color: 'var(--text-faint)' }} aria-hidden="true" />
+          </NavLink>
+
+          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+            <button className="btn btn-ghost btn-sm" onClick={handleLogout} aria-label="Sign out" style={{ flex: 1, justifyContent: collapsed ? 'center' : 'flex-start', color: 'var(--text-muted)' }}>
+              <LogOut size={16} aria-hidden="true" /><span className="nav-label">Sign out</span>
+            </button>
+            <button className="btn btn-ghost btn-icon btn-sm" onClick={onToggleCollapsed} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} aria-pressed={collapsed} style={{ color: 'var(--text-muted)' }} data-desktop-only>
+              {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+            </button>
+          </div>
+        </div>
+      </aside>
+    </>
   );
 }

@@ -4,6 +4,11 @@ const User = require('./models/User');
 const Case = require('./models/Case');
 const connectDB = require('./config/db');
 
+if (process.env.NODE_ENV === 'production' && process.env.ALLOW_SEED !== 'true') {
+    console.error('Refusing to seed a production database (set ALLOW_SEED=true to override).');
+    process.exit(1);
+}
+
 connectDB();
 
 const importData = async () => {

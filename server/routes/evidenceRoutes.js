@@ -1,48 +1,51 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const { 
-    uploadEvidence, 
+const {
+    uploadEvidence,
     getAllEvidence,
-    getCaseEvidence, 
+    getCaseEvidence,
     downloadEvidence,
+    previewEvidence,
     verifyEvidence,
     transferCustody,
     verifyCustodyChain,
     batchVerify,
     simulateTampering
 } = require('../controllers/evidenceController');
-const { protect } = require('../middlewares/authMiddleware');
+const { protect, authorize } = require('../middlewares/authMiddleware');
 const auditLog = require('../middlewares/auditMiddleware');
 const rateLimiter = require('../middlewares/rateLimiter');
 
-// Rate limiter for evidence uploads
 const uploadLimiter = rateLimiter({
-    windowMs: 60 * 1000, // 1 minute
+    windowMs: 60 * 1000,
     max: 20,
     message: 'Too many file upload requests. Please try again after a minute.'
 });
 
-// Memory storage for SHA-256 and MD5/SHA-1 buffer computation
+// Memory storage so hashes are computed on the exact bytes that get stored
 const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 1024 * 1024 * 50 } // 50MB limit
+    limits: { fileSize: 1024 * 1024 * 50, files: 1 }
 });
+
+const canHandleEvidence = authorize('admin', 'investigator');
 
 router.route('/')
     .get(protect, getAllEvidence)
-    .post(protect, uploadLimiter, upload.single('file'), auditLog('Upload Evidence'), uploadEvidence);
+    .post(protect, canHandleEvidence, uploadLimiter, upload.single('file'), auditLog('Upload Evidence'), uploadEvidence);
 
-router.post('/batch-verify', protect, auditLog('Batch Vault Integrity Audit'), batchVerify);
+router.post('/batch-verify', protect, authorize('admin', 'analyst'), auditLog('Batch Vault Integrity Audit'), batchVerify);
 
 router.get('/:caseId/list', protect, getCaseEvidence);
 router.get('/:id/download', protect, auditLog('Download Evidence'), downloadEvidence);
+router.get('/:id/preview', protect, previewEvidence);
 router.get('/:id/verify', protect, auditLog('Verify Evidence Integrity'), verifyEvidence);
 
-// Chain of Custody routes
-router.post('/:id/custody/transfer', protect, auditLog('Transfer Evidence Custody'), transferCustody);
+router.post('/:id/custody/transfer', protect, canHandleEvidence, auditLog('Transfer Evidence Custody'), transferCustody);
 router.get('/:id/custody/verify', protect, auditLog('Verify Chain of Custody'), verifyCustodyChain);
 
-router.put('/:id/simulate-tamper', protect, auditLog('Simulate Evidence Tampering'), simulateTampering);
+// Demo helper — refuses to run in production (see controller)
+router.put('/:id/simulate-tamper', protect, authorize('admin'), auditLog('Simulate Evidence Tampering'), simulateTampering);
 
 module.exports = router;

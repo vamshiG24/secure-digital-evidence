@@ -9,11 +9,16 @@ const userSchema = new mongoose.Schema({
     email: {
         type: String,
         required: [true, 'Please add an email'],
-        unique: true
+        unique: true,
+        lowercase: true,
+        trim: true,
+        match: [/^\S+@\S+\.\S+$/, 'Please provide a valid email']
     },
     password: {
         type: String,
-        required: [true, 'Please add a password']
+        required: [true, 'Please add a password'],
+        minlength: [8, 'Password must be at least 8 characters'],
+        select: false
     },
     role: {
         type: String,
@@ -41,12 +46,12 @@ const userSchema = new mongoose.Schema({
         enum: ['active', 'suspended', 'inactive'],
         default: 'active'
     },
-    twoFactorEnabled: {
-        type: Boolean,
-        default: false
-    },
     otpCode: {
-        type: String
+        type: String,
+        select: false
+    },
+    passwordChangedAt: {
+        type: Date
     },
     otpExpires: {
         type: Date
@@ -62,8 +67,9 @@ userSchema.pre('save', async function () {
     if (!this.isModified('password')) {
         return;
     }
-    const salt = await bcrypt.genSalt(10);
+    const salt = await bcrypt.genSalt(12);
     this.password = await bcrypt.hash(this.password, salt);
+    if (!this.isNew) this.passwordChangedAt = new Date();
 });
 
 // Match user entered password to hashed password in database

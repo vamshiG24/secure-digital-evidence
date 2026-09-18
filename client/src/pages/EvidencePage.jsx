@@ -3,14 +3,13 @@ import { motion } from 'framer-motion';
 import API from '../api/axios';
 import toast from 'react-hot-toast';
 import { Link, useSearchParams } from 'react-router-dom';
-import { 
-  Search, FileText, Shield, Download, Hash, HardDrive, 
-  User, Clock, CheckCircle, AlertTriangle, Play, Copy, ExternalLink,
-  Layers, Eye, RefreshCw, Zap, Check, AlertOctagon, Filter
-} from 'lucide-react';
+import { Search, FileText, Shield, Hash, HardDrive, User, CheckCircle, AlertTriangle, Play, Copy, ExternalLink, Eye, RefreshCw, AlertOctagon } from 'lucide-react';
 import ForensicInspectorModal from '../components/ForensicInspectorModal';
+import { useAuth } from '../context/AuthContext';
 
 export default function EvidencePage() {
+  const { user } = useAuth();
+  const canAudit = user?.role === 'admin' || user?.role === 'analyst';
   const [searchParams] = useSearchParams();
   const [evidence, setEvidence] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -49,7 +48,7 @@ export default function EvidencePage() {
         tamperedCount: data.length - intact,
         integrityScore: data.length ? Math.round((intact / data.length) * 100) : 100
       });
-    } catch (err) {
+    } catch {
       toast.error('Failed to load evidence assets');
     } finally {
       setLoading(false);
@@ -58,7 +57,7 @@ export default function EvidencePage() {
 
   useEffect(() => {
     fetchEvidence();
-    if (searchParams.get('audit') === 'true') {
+    if (searchParams.get('audit') === 'true' && canAudit) {
       setTimeout(() => handleBatchAudit(), 500);
     }
   }, [categoryFilter, classFilter]);
@@ -114,7 +113,7 @@ export default function EvidencePage() {
       } else {
         toast.error(`Vault Audit: ${data.tamperedCount} tampered assets detected!`);
       }
-    } catch (err) {
+    } catch {
       toast.error('Batch verification error');
     } finally {
       setAuditing(false);
@@ -143,17 +142,17 @@ export default function EvidencePage() {
 
       {/* Enterprise Vault Health & Integrity Radar Header */}
       <div style={{
-        background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+        background: 'linear-gradient(135deg, var(--text-primary) 0%, var(--text-primary) 100%)',
         borderRadius: 22, padding: '24px 28px', color: 'white', marginBottom: 24,
         display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 20,
-        boxShadow: '0 20px 40px rgba(15,23,42,0.18)', border: '1px solid #334155'
+        boxShadow: 'var(--shadow-lg)', border: '1px solid var(--border-strong)'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
           <div style={{
             width: 56, height: 56, borderRadius: 16,
-            background: auditStats.tamperedCount === 0 ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.2)',
-            border: `1.5px solid ${auditStats.tamperedCount === 0 ? '#22c55e' : '#ef4444'}`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', color: auditStats.tamperedCount === 0 ? '#22c55e' : '#ef4444'
+            background: auditStats.tamperedCount === 0 ? 'var(--success-soft)' : 'color-mix(in srgb, var(--danger) 30%, transparent)',
+            border: `1.5px solid ${auditStats.tamperedCount === 0 ? 'var(--success)' : 'var(--danger)'}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', color: auditStats.tamperedCount === 0 ? 'var(--success)' : 'var(--danger)'
           }}>
             {auditStats.tamperedCount === 0 ? <Shield size={30} /> : <AlertOctagon size={30} />}
           </div>
@@ -164,12 +163,12 @@ export default function EvidencePage() {
               </h2>
               <span style={{
                 fontSize: 11, fontWeight: 800, padding: '3px 9px', borderRadius: 99,
-                background: auditStats.tamperedCount === 0 ? '#16a34a' : '#dc2626', color: 'white'
+                background: auditStats.tamperedCount === 0 ? 'var(--success)' : 'var(--danger)', color: 'white'
               }}>
                 {auditStats.integrityScore}% INTACT
               </span>
             </div>
-            <p style={{ color: '#94a3b8', fontSize: 13, margin: '4px 0 0' }}>
+            <p style={{ color: 'var(--text-faint)', fontSize: 13, margin: '4px 0 0' }}>
               Real-time SHA-256 validation across all seized digital forensics artifacts & chain of custody blocks.
             </p>
           </div>
@@ -177,18 +176,19 @@ export default function EvidencePage() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <div style={{ textAlign: 'right', marginRight: 10 }}>
-            <div style={{ fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>Total Vault Assets</div>
+            <div style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase', fontWeight: 700 }}>Total Vault Assets</div>
             <div style={{ fontSize: 22, fontWeight: 800, fontFamily: "'Space Grotesk'" }}>
               {auditStats.totalScanned || evidence.length} Files
             </div>
           </div>
           <button
             onClick={handleBatchAudit}
-            disabled={auditing}
+            disabled={auditing || !canAudit}
+            title={canAudit ? undefined : 'Only admins and analysts can run the vault audit'}
             className="btn btn-primary"
             style={{
               padding: '10px 20px', borderRadius: 12, fontWeight: 700, fontSize: 13.5,
-              background: 'linear-gradient(135deg, #1d4ed8, #06b6d4)', boxShadow: '0 4px 20px rgba(6,182,212,0.3)'
+              background: 'linear-gradient(135deg, var(--primary), var(--accent))', boxShadow: '0 4px 20px var(--accent-soft)'
             }}>
             {auditing ? <RefreshCw size={16} className="animate-spin" /> : <Shield size={16} />}
             {auditing ? 'Running Full Vault Audit...' : 'Run Enterprise Integrity Audit'}
@@ -198,13 +198,13 @@ export default function EvidencePage() {
 
       {/* Filter & Search Bar */}
       <div style={{
-        background: 'white', borderRadius: 18, border: '1px solid var(--border)',
+        background: 'var(--surface)', borderRadius: 18, border: '1px solid var(--border)',
         padding: '16px 20px', marginBottom: 22, display: 'flex', flexWrap: 'wrap',
         alignItems: 'center', justifyContent: 'space-between', gap: 14
       }}>
         {/* Search */}
         <form onSubmit={handleSearchSubmit} style={{ position: 'relative', flex: 1, minWidth: 280 }}>
-          <Search size={16} color="#94a3b8" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
+          <Search size={16} color="var(--text-faint)" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
           <input
             type="text"
             className="input"
@@ -224,8 +224,8 @@ export default function EvidencePage() {
                 style={{
                   border: 'none', padding: '6px 12px', borderRadius: 8, fontSize: 11.5, fontWeight: 700,
                   cursor: 'pointer', transition: 'all 0.15s',
-                  background: categoryFilter === cat ? '#1d4ed8' : 'transparent',
-                  color: categoryFilter === cat ? 'white' : '#64748b'
+                  background: categoryFilter === cat ? 'var(--primary)' : 'transparent',
+                  color: categoryFilter === cat ? 'white' : 'var(--text-muted)'
                 }}>
                 {cat}
               </button>
@@ -238,7 +238,7 @@ export default function EvidencePage() {
             onChange={e => setClassFilter(e.target.value)}
             style={{
               padding: '6px 12px', height: 38, borderRadius: 10, fontSize: 12, fontWeight: 700,
-              border: '1px solid var(--border)', background: 'white', color: '#334155'
+              border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-secondary)'
             }}>
             <option value="All">All Classifications</option>
             <option value="Top Secret">Top Secret</option>
@@ -255,10 +255,10 @@ export default function EvidencePage() {
           {[...Array(6)].map((_, i) => <div key={i} className="skeleton" style={{ height: 220, borderRadius: 18 }} />)}
         </div>
       ) : evidence.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '70px 20px', background: 'white', borderRadius: 20, border: '1px solid var(--border)' }}>
-          <FileText size={48} color="#94a3b8" style={{ margin: '0 auto 12px' }} />
-          <h3 style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>No evidence assets found</h3>
-          <p style={{ fontSize: 13, color: '#64748b' }}>No assets matched your search filters in the vault.</p>
+        <div style={{ textAlign: 'center', padding: '70px 20px', background: 'var(--surface)', borderRadius: 20, border: '1px solid var(--border)' }}>
+          <FileText size={48} color="var(--text-faint)" style={{ margin: '0 auto 12px' }} />
+          <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>No evidence assets found</h3>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No assets matched your search filters in the vault.</p>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
@@ -270,19 +270,19 @@ export default function EvidencePage() {
 
             return (
               <motion.div key={ev._id || index}
-                whileHover={{ y: -4, boxShadow: '0 12px 36px rgba(29,78,216,0.12)' }}
+                whileHover={{ y: -4, boxShadow: '0 12px 36px var(--primary-soft)' }}
                 onClick={() => openInspector(ev)}
                 style={{
-                  background: 'white', borderRadius: 18, border: `1px solid ${verified === true ? 'rgba(34,197,94,0.3)' : verified === false ? 'rgba(239,68,68,0.4)' : 'var(--border)'}`,
+                  background: 'var(--surface)', borderRadius: 18, border: `1px solid ${verified === true ? 'color-mix(in srgb, var(--success) 30%, transparent)' : verified === false ? 'color-mix(in srgb, var(--danger) 30%, transparent)' : 'var(--border)'}`,
                   overflow: 'hidden', cursor: 'pointer', transition: 'box-shadow 0.2s, border-color 0.2s', position: 'relative'
                 }}>
 
                 {/* Status Indicator Bar */}
                 <div style={{
                   height: 3,
-                  background: verified === true ? 'linear-gradient(90deg,#16a34a,#22c55e)' :
-                              verified === false ? 'linear-gradient(90deg,#dc2626,#ef4444)' :
-                              'linear-gradient(90deg,#1d4ed8,#06b6d4)'
+                  background: verified === true ? 'linear-gradient(90deg,var(--success),var(--success))' :
+                              verified === false ? 'linear-gradient(90deg,var(--danger),var(--danger))' :
+                              'linear-gradient(90deg,var(--primary),var(--accent))'
                 }} />
 
                 <div style={{ padding: '18px 20px' }}>
@@ -290,14 +290,14 @@ export default function EvidencePage() {
                   {ev.caseId && (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                       <Link to={`/cases/${ev.caseId._id || ev.caseId}`} onClick={e => e.stopPropagation()}
-                        style={{ textDecoration: 'none', fontSize: 10.5, fontWeight: 700, color: '#1d4ed8', display: 'flex', alignItems: 'center', gap: 4 }}>
+                        style={{ textDecoration: 'none', fontSize: 10.5, fontWeight: 700, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: 4 }}>
                         <ExternalLink size={10} /> Case: {ev.caseId.title || ev.caseTitle || 'Active Case'}
                       </Link>
                       <span style={{
                         fontSize: 9.5, fontWeight: 800, textTransform: 'uppercase',
                         padding: '1px 6px', borderRadius: 4,
-                        background: ev.classification === 'Top Secret' ? '#fef2f2' : '#eff6ff',
-                        color: ev.classification === 'Top Secret' ? '#dc2626' : '#1d4ed8'
+                        background: ev.classification === 'Top Secret' ? 'var(--danger-soft)' : 'var(--primary-soft)',
+                        color: ev.classification === 'Top Secret' ? 'var(--danger)' : 'var(--primary)'
                       }}>
                         {ev.classification || 'Confidential'}
                       </span>
@@ -314,14 +314,14 @@ export default function EvidencePage() {
                       {fileIcon}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, fontSize: 13.5, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {ev.fileName || 'Unnamed Asset'}
                       </div>
                       <div style={{ display: 'flex', gap: 8, marginTop: 3, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 11, color: '#64748b', display: 'flex', alignItems: 'center', gap: 3 }}>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3 }}>
                           <HardDrive size={10} />{formattedSize} KB
                         </span>
-                        <span style={{ fontSize: 11, color: '#64748b', display: 'flex', alignItems: 'center', gap: 3 }}>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3 }}>
                           <User size={10} />{ev.uploader?.name || 'Investigator'}
                         </span>
                       </div>
@@ -334,13 +334,13 @@ export default function EvidencePage() {
                     marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
-                      <Hash size={11} color="#94a3b8" style={{ flexShrink: 0 }} />
-                      <span style={{ fontSize: 9.5, fontFamily: 'monospace', color: '#475569', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <Hash size={11} color="var(--text-faint)" style={{ flexShrink: 0 }} />
+                      <span style={{ fontSize: 9.5, fontFamily: 'monospace', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {ev.fileHash}
                       </span>
                     </div>
                     <button onClick={(e) => handleCopyHash(ev.fileHash, ev.fileName, e)}
-                      style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#64748b', padding: 2 }}
+                      style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)', padding: 2 }}
                       title="Copy SHA-256 checksum">
                       <Copy size={11} />
                     </button>
@@ -351,8 +351,8 @@ export default function EvidencePage() {
                     <div style={{
                       padding: '6px 10px', borderRadius: 8, marginBottom: 12,
                       display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 700,
-                      background: verified ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
-                      color: verified ? '#16a34a' : '#dc2626'
+                      background: verified ? 'var(--success-soft)' : 'var(--danger-soft)',
+                      color: verified ? 'var(--success)' : 'var(--danger)'
                     }}>
                       {verified ? <CheckCircle size={12} /> : <AlertTriangle size={12} />}
                       <span>{verified ? 'Cryptographically Sealed' : 'Tamper Detected!'}</span>
@@ -375,15 +375,17 @@ export default function EvidencePage() {
                       {verifying[ev._id] ? <RefreshCw size={11} className="animate-spin" /> : <Shield size={12} />}
                       Verify
                     </button>
-                    <button
-                      onClick={(e) => handleSimulateTamper(ev, e)}
-                      style={{
-                        padding: '6px 8px', borderRadius: 8, border: '1px solid rgba(239,68,68,0.25)',
-                        background: 'rgba(239,68,68,0.05)', color: '#dc2626', cursor: 'pointer'
-                      }}
-                      title="Simulate Tampering (Demonstration)">
-                      <Play size={11} />
-                    </button>
+                    {user?.role === 'admin' && import.meta.env.DEV && (
+                      <button
+                        onClick={(e) => handleSimulateTamper(ev, e)}
+                        style={{
+                          padding: '6px 8px', borderRadius: 8, border: '1px solid color-mix(in srgb, var(--danger) 30%, transparent)',
+                          background: 'var(--danger-soft)', color: 'var(--danger)', cursor: 'pointer'
+                        }}
+                        aria-label="Simulate tampering (demo)" title="Simulate tampering (demo, admin only)">
+                        <Play size={11} />
+                      </button>
+                    )}
                   </div>
 
                 </div>

@@ -25,3 +25,9 @@ pnpm-debug.log*
 Thumbs.db
 .vscode/
 .idea/
+
+# Local evidence uploads (never commit)
+server/uploads/
+
+# Design system cache
+design-system/

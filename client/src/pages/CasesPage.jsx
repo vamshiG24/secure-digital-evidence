@@ -1,34 +1,29 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import API from '../api/axios';
 import toast from 'react-hot-toast';
-import {
-  Plus, Search, FolderOpen, X, Filter,
-  User, Calendar, Flag, ArrowUpRight, Loader2,
-  ChevronDown, CheckCircle, LayoutGrid, Kanban, List,
-  Shield, Activity, ArrowRight, AlertTriangle, Hash, FileText
-} from 'lucide-react';
+import { Plus, Search, FolderOpen, X, User, Loader2, LayoutGrid, Kanban, List, Shield } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 const statusColors = {
-  Open: '#16a34a', open: '#16a34a',
-  'In Progress': '#1d4ed8', in_progress: '#1d4ed8', 'in progress': '#1d4ed8',
-  Closed: '#64748b', closed: '#64748b',
-  Suspended: '#ea580c', suspended: '#ea580c'
+  Open: 'var(--success)', open: 'var(--success)',
+  'In Progress': 'var(--primary)', in_progress: 'var(--primary)', 'in progress': 'var(--primary)',
+  Closed: 'var(--text-muted)', closed: 'var(--text-muted)',
+  Suspended: 'var(--warning)', suspended: 'var(--warning)'
 };
 const priorityColors = {
-  Critical: '#dc2626', critical: '#dc2626',
-  High: '#ea580c', high: '#ea580c',
-  Medium: '#ca8a04', medium: '#ca8a04',
-  Low: '#16a34a', low: '#16a34a'
+  Critical: 'var(--danger)', critical: 'var(--danger)',
+  High: 'var(--warning)', high: 'var(--warning)',
+  Medium: 'var(--warning)', medium: 'var(--warning)',
+  Low: 'var(--success)', low: 'var(--success)'
 };
 
 const KANBAN_COLUMNS = [
-  { id: 'Open', title: 'Intake / Open', color: '#16a34a', bg: 'rgba(34,197,94,0.06)' },
-  { id: 'In Progress', title: 'Active Investigation', color: '#1d4ed8', bg: 'rgba(29,78,216,0.06)' },
-  { id: 'Suspended', title: 'Suspended / Pending', color: '#ea580c', bg: 'rgba(234,88,12,0.06)' },
-  { id: 'Closed', title: 'Adjudicated / Closed', color: '#64748b', bg: 'rgba(100,116,139,0.06)' }
+  { id: 'Open', title: 'Intake / Open', color: 'var(--success)', bg: 'var(--success-soft)' },
+  { id: 'In Progress', title: 'Active Investigation', color: 'var(--primary)', bg: 'var(--primary-soft)' },
+  { id: 'Suspended', title: 'Suspended / Pending', color: 'var(--warning)', bg: 'var(--warning-soft)' },
+  { id: 'Closed', title: 'Adjudicated / Closed', color: 'var(--text-muted)', bg: 'var(--surface-3)' }
 ];
 
 export default function CasesPage() {
@@ -40,7 +35,7 @@ export default function CasesPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterPriority, setFilterPriority] = useState('All');
-  const [filterStatus, setFilterStatus] = useState('All');
+  const [filterStatus, _setFilterStatus] = useState(searchParams.get('status') || 'All');
   const [viewMode, setViewMode] = useState('kanban'); // 'kanban' | 'grid' | 'table'
   const [modalOpen, setModalOpen] = useState(false);
   const [users, setUsers] = useState([]);
@@ -56,7 +51,7 @@ export default function CasesPage() {
       if (statsRes.data) {
         setStats(statsRes.data);
       }
-    } catch (err) {
+    } catch {
       toast.error('Failed to load cases');
     } finally {
       setLoading(false);
@@ -106,42 +101,42 @@ export default function CasesPage() {
         display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14,
         marginBottom: 20
       }}>
-        <div style={{ padding: '16px 20px', background: 'white', borderRadius: 16, border: '1px solid var(--border)' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>Total Investigations</div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: '#0f172a', fontFamily: "'Space Grotesk'", marginTop: 4 }}>
+        <div style={{ padding: '16px 20px', background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Total Investigations</div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--text-primary)', fontFamily: "'Space Grotesk'", marginTop: 4 }}>
             {cases.length}
           </div>
-          <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 600, marginTop: 4 }}>
+          <div style={{ fontSize: 11, color: 'var(--success)', fontWeight: 600, marginTop: 4 }}>
             ● Active Forensics Registry
           </div>
         </div>
 
-        <div style={{ padding: '16px 20px', background: 'white', borderRadius: 16, border: '1px solid var(--border)' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>Critical / High Threats</div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: '#dc2626', fontFamily: "'Space Grotesk'", marginTop: 4 }}>
+        <div style={{ padding: '16px 20px', background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Critical / High Threats</div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--danger)', fontFamily: "'Space Grotesk'", marginTop: 4 }}>
             {cases.filter(c => ['critical', 'high'].includes(c.priority?.toLowerCase())).length}
           </div>
-          <div style={{ fontSize: 11, color: '#dc2626', fontWeight: 600, marginTop: 4 }}>
+          <div style={{ fontSize: 11, color: 'var(--danger)', fontWeight: 600, marginTop: 4 }}>
             ▲ Immediate Attention Needed
           </div>
         </div>
 
-        <div style={{ padding: '16px 20px', background: 'white', borderRadius: 16, border: '1px solid var(--border)' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>Under Lab Analysis</div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: '#1d4ed8', fontFamily: "'Space Grotesk'", marginTop: 4 }}>
+        <div style={{ padding: '16px 20px', background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Under Lab Analysis</div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--primary)', fontFamily: "'Space Grotesk'", marginTop: 4 }}>
             {cases.filter(c => ['in progress', 'in_progress'].includes(c.status?.toLowerCase())).length}
           </div>
-          <div style={{ fontSize: 11, color: '#1d4ed8', fontWeight: 600, marginTop: 4 }}>
+          <div style={{ fontSize: 11, color: 'var(--primary)', fontWeight: 600, marginTop: 4 }}>
             ■ Active Chain of Custody
           </div>
         </div>
 
-        <div style={{ padding: '16px 20px', background: 'white', borderRadius: 16, border: '1px solid var(--border)' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>Resolution / Clearance</div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: '#16a34a', fontFamily: "'Space Grotesk'", marginTop: 4 }}>
+        <div style={{ padding: '16px 20px', background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Resolution / Clearance</div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--success)', fontFamily: "'Space Grotesk'", marginTop: 4 }}>
             {stats.clearanceRate || (cases.length ? Math.round((cases.filter(c => c.status?.toLowerCase() === 'closed').length / cases.length) * 100) : 0)}%
           </div>
-          <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600, marginTop: 4 }}>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginTop: 4 }}>
             Case Adjudication Metric
           </div>
         </div>
@@ -149,13 +144,13 @@ export default function CasesPage() {
 
       {/* Action Controls & Filters Bar */}
       <div style={{
-        background: 'white', borderRadius: 18, border: '1px solid var(--border)',
+        background: 'var(--surface)', borderRadius: 18, border: '1px solid var(--border)',
         padding: '16px 20px', marginBottom: 22, display: 'flex', flexWrap: 'wrap',
         alignItems: 'center', justifyContent: 'space-between', gap: 14
       }}>
         {/* Search Bar */}
         <div style={{ position: 'relative', flex: 1, minWidth: 260 }}>
-          <Search size={16} color="#94a3b8" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
+          <Search size={16} color="var(--text-faint)" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }} />
           <input
             type="text"
             className="input"
@@ -175,8 +170,8 @@ export default function CasesPage() {
                 style={{
                   border: 'none', padding: '6px 12px', borderRadius: 8, fontSize: 11.5, fontWeight: 700,
                   cursor: 'pointer', transition: 'all 0.15s',
-                  background: filterPriority === p ? '#1d4ed8' : 'transparent',
-                  color: filterPriority === p ? 'white' : '#64748b'
+                  background: filterPriority === p ? 'var(--primary)' : 'transparent',
+                  color: filterPriority === p ? 'white' : 'var(--text-muted)'
                 }}>
                 {p}
               </button>
@@ -191,8 +186,8 @@ export default function CasesPage() {
               style={{
                 border: 'none', padding: '6px 10px', borderRadius: 8, cursor: 'pointer',
                 background: viewMode === 'kanban' ? 'white' : 'transparent',
-                color: viewMode === 'kanban' ? '#1d4ed8' : '#64748b',
-                boxShadow: viewMode === 'kanban' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none'
+                color: viewMode === 'kanban' ? 'var(--primary)' : 'var(--text-muted)',
+                boxShadow: viewMode === 'kanban' ? '0 2px 6px var(--border)' : 'none'
               }}>
               <Kanban size={15} />
             </button>
@@ -202,8 +197,8 @@ export default function CasesPage() {
               style={{
                 border: 'none', padding: '6px 10px', borderRadius: 8, cursor: 'pointer',
                 background: viewMode === 'grid' ? 'white' : 'transparent',
-                color: viewMode === 'grid' ? '#1d4ed8' : '#64748b',
-                boxShadow: viewMode === 'grid' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none'
+                color: viewMode === 'grid' ? 'var(--primary)' : 'var(--text-muted)',
+                boxShadow: viewMode === 'grid' ? '0 2px 6px var(--border)' : 'none'
               }}>
               <LayoutGrid size={15} />
             </button>
@@ -213,8 +208,8 @@ export default function CasesPage() {
               style={{
                 border: 'none', padding: '6px 10px', borderRadius: 8, cursor: 'pointer',
                 background: viewMode === 'table' ? 'white' : 'transparent',
-                color: viewMode === 'table' ? '#1d4ed8' : '#64748b',
-                boxShadow: viewMode === 'table' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none'
+                color: viewMode === 'table' ? 'var(--primary)' : 'var(--text-muted)',
+                boxShadow: viewMode === 'table' ? '0 2px 6px var(--border)' : 'none'
               }}>
               <List size={15} />
             </button>
@@ -234,10 +229,10 @@ export default function CasesPage() {
           {[...Array(6)].map((_, i) => <div key={i} className="skeleton" style={{ height: 210, borderRadius: 18 }} />)}
         </div>
       ) : filtered.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '70px 20px', background: 'white', borderRadius: 20, border: '1px solid var(--border)' }}>
-          <FolderOpen size={48} color="#94a3b8" style={{ margin: '0 auto 12px' }} />
-          <h3 style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>No investigations found</h3>
-          <p style={{ fontSize: 13, color: '#64748b' }}>Try adjusting your search terms or filter criteria.</p>
+        <div style={{ textAlign: 'center', padding: '70px 20px', background: 'var(--surface)', borderRadius: 20, border: '1px solid var(--border)' }}>
+          <FolderOpen size={48} color="var(--text-faint)" style={{ margin: '0 auto 12px' }} />
+          <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>No investigations found</h3>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Try adjusting your search terms or filter criteria.</p>
         </div>
       ) : viewMode === 'kanban' ? (
         /* KANBAN PIPELINE VIEW */
@@ -267,11 +262,11 @@ export default function CasesPage() {
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: col.color }} />
-                    <span style={{ fontSize: 13.5, fontWeight: 800, color: '#0f172a' }}>{col.title}</span>
+                    <span style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--text-primary)' }}>{col.title}</span>
                   </div>
                   <span style={{
                     fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 99,
-                    background: 'white', color: col.color, border: `1px solid ${col.color}30`
+                    background: 'var(--surface)', color: col.color, border: `1px solid ${col.color}30`
                   }}>
                     {colCases.length}
                   </span>
@@ -283,17 +278,17 @@ export default function CasesPage() {
                     <div key={c._id}
                       onClick={() => navigate(`/cases/${c._id}`)}
                       style={{
-                        background: 'white', borderRadius: 14, padding: '14px 16px',
-                        border: '1px solid rgba(29,78,216,0.1)', cursor: 'pointer',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.03)', transition: 'all 0.2s',
+                        background: 'var(--surface)', borderRadius: 14, padding: '14px 16px',
+                        border: '1px solid var(--primary-soft)', cursor: 'pointer',
+                        boxShadow: '0 2px 8px var(--border)', transition: 'all 0.2s',
                         position: 'relative', overflow: 'hidden'
                       }}
-                      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 24px rgba(29,78,216,0.12)'; }}
-                      onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.03)'; }}>
+                      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 24px var(--primary-soft)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 8px var(--border)'; }}>
                       
                       {/* Priority Tag & Case Number */}
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                        <span style={{ fontSize: 10, fontFamily: 'monospace', fontWeight: 700, color: '#1d4ed8' }}>
+                        <span style={{ fontSize: 10, fontFamily: 'monospace', fontWeight: 700, color: 'var(--primary)' }}>
                           {c.caseNumber || 'CASE'}
                         </span>
                         <span style={{
@@ -307,12 +302,12 @@ export default function CasesPage() {
                         </span>
                       </div>
 
-                      <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', lineHeight: 1.3, marginBottom: 6 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.3, marginBottom: 6 }}>
                         {c.title}
                       </div>
 
                       <p style={{
-                        fontSize: 12, color: '#64748b', lineHeight: 1.4, marginBottom: 12,
+                        fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4, marginBottom: 12,
                         display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden'
                       }}>
                         {c.description}
@@ -320,7 +315,7 @@ export default function CasesPage() {
 
                       <div style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        paddingTop: 10, borderTop: '1px solid var(--border)', fontSize: 11, color: '#64748b'
+                        paddingTop: 10, borderTop: '1px solid var(--border)', fontSize: 11, color: 'var(--text-muted)'
                       }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                           <User size={12} />
@@ -336,7 +331,7 @@ export default function CasesPage() {
                           onChange={e => handleUpdateCaseStatus(c._id, e.target.value, e)}
                           style={{
                             fontSize: 10.5, fontWeight: 700, border: '1px solid var(--border)',
-                            borderRadius: 6, background: 'var(--surface)', padding: '2px 4px', color: '#334155'
+                            borderRadius: 6, background: 'var(--surface)', padding: '2px 4px', color: 'var(--text-secondary)'
                           }}>
                           <option value="Open">Open</option>
                           <option value="In Progress">In Progress</option>
@@ -359,17 +354,17 @@ export default function CasesPage() {
             <div key={c._id}
               onClick={() => navigate(`/cases/${c._id}`)}
               style={{
-                background: 'white', borderRadius: 18, border: '1px solid var(--border)',
+                background: 'var(--surface)', borderRadius: 18, border: '1px solid var(--border)',
                 padding: '18px 20px', cursor: 'pointer', transition: 'all 0.2s',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.03)'
+                boxShadow: '0 2px 8px var(--border)'
               }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 12px 32px rgba(29,78,216,0.12)'; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.03)'; }}>
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 12px 32px var(--primary-soft)'; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 8px var(--border)'; }}>
               
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                 <span style={{
-                  fontSize: 11, fontFamily: 'monospace', fontWeight: 800, color: '#1d4ed8',
-                  padding: '3px 8px', borderRadius: 6, background: '#eff6ff', border: '1px solid #bfdbfe'
+                  fontSize: 11, fontFamily: 'monospace', fontWeight: 800, color: 'var(--primary)',
+                  padding: '3px 8px', borderRadius: 6, background: 'var(--primary-soft)', border: '1px solid var(--border-brand)'
                 }}>
                   {c.caseNumber || 'CASE'}
                 </span>
@@ -384,18 +379,18 @@ export default function CasesPage() {
                 </span>
               </div>
 
-              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', marginBottom: 6 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>
                 {c.title}
               </h3>
 
               <p style={{
-                fontSize: 12.5, color: '#64748b', lineHeight: 1.5, marginBottom: 14,
+                fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: 14,
                 display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden'
               }}>
                 {c.description}
               </p>
 
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, borderTop: '1px solid var(--border)', fontSize: 11.5, color: '#64748b' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, borderTop: '1px solid var(--border)', fontSize: 11.5, color: 'var(--text-muted)' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                   <User size={13} /> {c.assignedTo?.name || 'Unassigned'}
                 </span>
@@ -411,10 +406,10 @@ export default function CasesPage() {
         </div>
       ) : (
         /* TABLE VIEW */
-        <div style={{ background: 'white', borderRadius: 18, border: '1px solid var(--border)', overflow: 'hidden' }}>
+        <div style={{ background: 'var(--surface)', borderRadius: 18, border: '1px solid var(--border)', overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
             <thead>
-              <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)', color: '#475569', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <tr style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 <th style={{ padding: '14px 20px' }}>Case Number</th>
                 <th style={{ padding: '14px 20px' }}>Title & Scope</th>
                 <th style={{ padding: '14px 20px' }}>Priority</th>
@@ -429,14 +424,14 @@ export default function CasesPage() {
                   onClick={() => navigate(`/cases/${c._id}`)}
                   style={{
                     borderBottom: '1px solid var(--border)', cursor: 'pointer',
-                    background: i % 2 === 0 ? 'white' : '#fafbfc'
+                    background: i % 2 === 0 ? 'white' : 'var(--surface-2)'
                   }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#f0f6ff'}
-                  onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? 'white' : '#fafbfc'}>
-                  <td style={{ padding: '14px 20px', fontFamily: 'monospace', fontWeight: 700, color: '#1d4ed8' }}>
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
+                  onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? 'white' : 'var(--surface-2)'}>
+                  <td style={{ padding: '14px 20px', fontFamily: 'monospace', fontWeight: 700, color: 'var(--primary)' }}>
                     {c.caseNumber || 'CASE'}
                   </td>
-                  <td style={{ padding: '14px 20px', fontWeight: 600, color: '#0f172a' }}>
+                  <td style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-primary)' }}>
                     {c.title}
                   </td>
                   <td style={{ padding: '14px 20px' }}>
@@ -457,10 +452,10 @@ export default function CasesPage() {
                       {c.status}
                     </span>
                   </td>
-                  <td style={{ padding: '14px 20px', color: '#475569' }}>
+                  <td style={{ padding: '14px 20px', color: 'var(--text-secondary)' }}>
                     {c.assignedTo?.name || 'Unassigned'}
                   </td>
-                  <td style={{ padding: '14px 20px', color: '#94a3b8', fontSize: 12 }}>
+                  <td style={{ padding: '14px 20px', color: 'var(--text-faint)', fontSize: 12 }}>
                     {new Date(c.createdAt).toLocaleDateString()}
                   </td>
                 </tr>
@@ -514,7 +509,7 @@ function CreateCaseModal({ open, onClose, onCreated, users }) {
       await API.post('/api/cases', payload);
       toast.success('Investigation registered in vault!');
       onCreated();
-    } catch (err) {
+    } catch {
       toast.error(err.response?.data?.message || 'Failed to create case');
     } finally {
       setSubmitting(false);
@@ -524,7 +519,7 @@ function CreateCaseModal({ open, onClose, onCreated, users }) {
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 9999,
-      background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(8px)',
+      background: 'var(--overlay)', backdropFilter: 'blur(8px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16
     }}
     onClick={onClose}>
@@ -532,9 +527,9 @@ function CreateCaseModal({ open, onClose, onCreated, users }) {
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         style={{
-          width: '100%', maxWidth: 560, background: 'white',
+          width: '100%', maxWidth: 560, background: 'var(--surface)',
           borderRadius: 22, border: '1px solid var(--border)',
-          boxShadow: '0 25px 60px -12px rgba(15,23,42,0.3)',
+          boxShadow: '0 25px 60px -12px var(--overlay)',
           overflow: 'hidden'
         }}
         onClick={e => e.stopPropagation()}>
@@ -544,19 +539,19 @@ function CreateCaseModal({ open, onClose, onCreated, users }) {
           background: 'var(--off-white)', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <FolderOpen size={20} color="#1d4ed8" />
-            <h3 style={{ fontSize: 16, fontWeight: 800, color: '#0f172a', margin: 0, fontFamily: "'Space Grotesk'" }}>
+            <FolderOpen size={20} color="var(--primary)" />
+            <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', margin: 0, fontFamily: "'Space Grotesk'" }}>
               Register Forensic Investigation
             </h3>
           </div>
-          <button onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#64748b' }}>
+          <button onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}>
             <X size={18} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} style={{ padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }}>
               Investigation Title *
             </label>
             <input
@@ -570,7 +565,7 @@ function CreateCaseModal({ open, onClose, onCreated, users }) {
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }}>
               Investigative Scope & Description *
             </label>
             <textarea
@@ -585,7 +580,7 @@ function CreateCaseModal({ open, onClose, onCreated, users }) {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             <div>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }}>
                 Threat Priority
               </label>
               <select
@@ -600,7 +595,7 @@ function CreateCaseModal({ open, onClose, onCreated, users }) {
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }}>
                 Assign Lead Officer
               </label>
               <select
@@ -617,7 +612,7 @@ function CreateCaseModal({ open, onClose, onCreated, users }) {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             <div>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }}>
                 Court Docket Reference
               </label>
               <input
@@ -630,7 +625,7 @@ function CreateCaseModal({ open, onClose, onCreated, users }) {
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }}>
                 Forensic Classification Tags
               </label>
               <input

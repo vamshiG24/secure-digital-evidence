@@ -1,181 +1,74 @@
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import API from '../api/axios';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
-  FolderOpen, FileText, Users, ClipboardList,
-  TrendingUp, AlertCircle, CheckCircle, Clock,
-  Activity, Shield, Zap, BarChart2, Eye, Sparkles
+  FolderOpen, AlertTriangle, Clock, CheckCircle2, FileText, ShieldCheck, Plus, ArrowUpRight,
+  Activity, Sparkles, Fingerprint, Zap, ClipboardList, Upload, Search
 } from 'lucide-react';
+import API from '../api/axios';
+import { useAuth } from '../context/AuthContext';
+import {
+  SpotlightCard, AnimatedNumber, Reveal, Badge, statusVariant, Skeleton, EmptyState, Avatar, IconTile, spring
+} from '../components/ui';
 
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { staggerChildren: 0.08, delayChildren: 0.1 } },
+const greeting = () => {
+  const h = new Date().getHours();
+  return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
 };
-const itemVariants = {
-  hidden: { opacity: 0, y: 24, scale: 0.97 },
-  visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.45, ease: [0.4, 0, 0.2, 1] } },
+
+const fmtDate = (d) => new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+const timeAgo = (d) => {
+  const s = Math.floor((Date.now() - new Date(d)) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
 };
 
-function StatCard({ icon: Icon, label, value, color, gradient, delay = 0, trend, onClick }) {
-  const [count, setCount] = useState(0);
-  useEffect(() => {
-    let start = 0;
-    const target = parseInt(value) || 0;
-    if (target === 0) return;
-    const step = Math.ceil(target / 30);
-    const timer = setInterval(() => {
-      start += step;
-      if (start >= target) { setCount(target); clearInterval(timer); }
-      else setCount(start);
-    }, 30);
-    return () => clearInterval(timer);
-  }, [value]);
-
+function StatTile({ icon, label, value, tone, to, hint }) {
+  const navigate = useNavigate();
   return (
-    <motion.div variants={itemVariants}
-      whileHover={{ y: -6, boxShadow: '0 16px 48px rgba(29,78,216,0.15)' }}
-      onClick={onClick}
-      style={{
-        background: 'white', borderRadius: 20, padding: '22px 24px',
-        border: '1px solid rgba(29,78,216,0.1)', position: 'relative', overflow: 'hidden',
-        cursor: onClick ? 'pointer' : 'default', transition: 'box-shadow 0.3s ease',
-      }}>
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: gradient }} />
-      <div style={{ position: 'absolute', right: -16, top: -16, width: 100, height: 100, borderRadius: '50%', background: `${color}08` }} />
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-        <div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
-            {label}
+    <Reveal.Item>
+      <SpotlightCard
+        className="stat-card card-hover" style={{ '--stat-accent': `var(--${tone})`, cursor: to ? 'pointer' : 'default' }}
+        onClick={to ? () => navigate(to) : undefined} role={to ? 'link' : undefined} tabIndex={to ? 0 : undefined}
+        onKeyDown={to ? (e) => e.key === 'Enter' && navigate(to) : undefined}
+      >
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+          <div>
+            <div className="stat-label">{label}</div>
+            <div className="stat-value" style={{ marginTop: 6 }}><AnimatedNumber value={value} /></div>
+            {hint && <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 6 }}>{hint}</div>}
           </div>
-          <div style={{ fontSize: 34, fontWeight: 800, color: '#0f172a', lineHeight: 1, fontFamily: "'Space Grotesk'" }}>
-            {count}
-          </div>
-          {trend && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 8, fontSize: 12, color: '#16a34a', fontWeight: 600 }}>
-              <TrendingUp size={12} /> {trend}
-            </div>
-          )}
+          <IconTile icon={icon} tone={tone} />
         </div>
-        <div style={{
-          width: 48, height: 48, borderRadius: 14, flexShrink: 0,
-          background: `${color}12`, border: `1.5px solid ${color}25`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <Icon size={22} color={color} />
+      </SpotlightCard>
+    </Reveal.Item>
+  );
+}
+
+/** SVG integrity ring: animated stroke, readable value in the centre. */
+function IntegrityRing({ value = 100, size = 132 }) {
+  const reduce = useReducedMotion();
+  const r = (size - 14) / 2;
+  const c = 2 * Math.PI * r;
+  const tone = value >= 95 ? 'success' : value >= 80 ? 'warning' : 'danger';
+  return (
+    <div style={{ position: 'relative', width: size, height: size }} role="img" aria-label={`Vault integrity ${value}%`}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--surface-3)" strokeWidth="10" />
+        <motion.circle
+          cx={size / 2} cy={size / 2} r={r} fill="none" stroke={`var(--${tone})`} strokeWidth="10" strokeLinecap="round"
+          strokeDasharray={c} initial={{ strokeDashoffset: reduce ? c * (1 - value / 100) : c }}
+          animate={{ strokeDashoffset: c * (1 - value / 100) }} transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1], delay: 0.3 }}
+        />
+      </svg>
+      <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', textAlign: 'center' }}>
+        <div>
+          <div className="stat-value" style={{ fontSize: 26 }}><AnimatedNumber value={value} suffix="%" /></div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>integrity</div>
         </div>
       </div>
-    </motion.div>
-  );
-}
-
-function CaseRow({ caseItem, index, onClick }) {
-  const priorityColors = {
-    Critical: '#dc2626', High: '#ea580c', Medium: '#ca8a04', Low: '#16a34a'
-  };
-  const statusColors = {
-    Open: '#16a34a', 'In Progress': '#1d4ed8', Closed: '#64748b'
-  };
-
-  return (
-    <motion.tr
-      initial={{ opacity: 0, x: -20 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: index * 0.05 }}
-      onClick={onClick}
-      style={{ cursor: 'pointer' }}
-      whileHover={{ backgroundColor: 'rgba(59,130,246,0.05)' }}>
-      <td style={{ paddingLeft: 20, padding: '14px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-          <span style={{ fontSize: 10, fontFamily: 'monospace', fontWeight: 800, color: '#1d4ed8', background: '#eff6ff', padding: '1px 5px', borderRadius: 4 }}>
-            {caseItem.caseNumber || 'CASE'}
-          </span>
-          <span style={{ fontWeight: 700, color: '#0f172a', fontSize: 13.5 }}>
-            {caseItem.title}
-          </span>
-        </div>
-        <div style={{ fontSize: 11.5, color: '#94a3b8' }}>
-          Registered: {new Date(caseItem.createdAt).toLocaleDateString()}
-        </div>
-      </td>
-
-      <td>
-        <span style={{
-          display: 'inline-flex', alignItems: 'center', gap: 5,
-          padding: '3px 10px', borderRadius: 99, fontSize: 12, fontWeight: 600,
-          background: `${statusColors[caseItem.status] || '#64748b'}12`,
-          color: statusColors[caseItem.status] || '#64748b',
-          border: `1px solid ${statusColors[caseItem.status] || '#64748b'}25`,
-        }}>
-          <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'currentColor' }} />
-          {caseItem.status}
-        </span>
-      </td>
-      <td>
-        <span style={{
-          display: 'inline-flex', padding: '3px 10px', borderRadius: 99, fontSize: 12, fontWeight: 700,
-          background: `${priorityColors[caseItem.priority] || '#16a34a'}10`,
-          color: priorityColors[caseItem.priority] || '#16a34a',
-          border: `1px solid ${priorityColors[caseItem.priority] || '#16a34a'}25`,
-          textTransform: 'uppercase', letterSpacing: '0.05em',
-        }}>
-          {caseItem.priority}
-        </span>
-      </td>
-      <td style={{ color: '#475569', fontSize: 13 }}>
-        {caseItem.assignedTo?.name || 'Unassigned'}
-      </td>
-    </motion.tr>
-  );
-}
-
-function ActivityFeed({ logs }) {
-  const actionColors = {
-    USER_LOGIN: { color: '#16a34a', icon: CheckCircle },
-    USER_LOGOUT: { color: '#64748b', icon: Activity },
-    USER_REGISTER: { color: '#1d4ed8', icon: Users },
-    MFA_CHALLENGE: { color: '#ca8a04', icon: Shield },
-    'Create Case': { color: '#7c3aed', icon: FolderOpen },
-    'Upload Evidence': { color: '#06b6d4', icon: FileText },
-    'Verify Evidence Integrity': { color: '#16a34a', icon: CheckCircle },
-  };
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-      {logs.slice(0, 8).map((log, i) => {
-        const ac = actionColors[log.action] || { color: '#64748b', icon: Activity };
-        const IconComp = ac.icon;
-        return (
-          <motion.div key={log._id}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.04 }}
-            style={{
-              display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 0',
-              borderBottom: i < logs.slice(0, 8).length - 1 ? '1px solid var(--border)' : 'none',
-            }}>
-            <div style={{
-              width: 32, height: 32, borderRadius: 10, flexShrink: 0,
-              background: `${ac.color}10`, border: `1px solid ${ac.color}20`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <IconComp size={14} color={ac.color} />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', marginBottom: 2 }}>
-                {log.action.replace(/_/g, ' ')}
-              </div>
-              <div style={{ fontSize: 12, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {log.details || log.user?.email || 'System action'}
-              </div>
-            </div>
-            <div style={{ fontSize: 11, color: '#94a3b8', whiteSpace: 'nowrap', flexShrink: 0 }}>
-              {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </div>
-          </motion.div>
-        );
-      })}
     </div>
   );
 }
@@ -183,213 +76,194 @@ function ActivityFeed({ logs }) {
 export default function DashboardPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [analytics, setAnalytics] = useState(null);
   const [cases, setCases] = useState([]);
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchData = async () => {
+    let alive = true;
+    (async () => {
       try {
-        const [casesRes, logsRes] = await Promise.allSettled([
+        const [a, c, l] = await Promise.all([
+          API.get('/api/cases/stats/analytics'),
           API.get('/api/cases'),
-          user?.role === 'admin' ? API.get('/api/logs') : Promise.resolve({ data: [] }),
+          user?.role === 'admin' ? API.get('/api/logs?limit=8') : Promise.resolve({ data: [] }),
         ]);
-        if (casesRes.status === 'fulfilled') setCases(casesRes.value.data);
-        if (logsRes.status === 'fulfilled') setLogs(logsRes.value.data);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, [user]);
+        if (!alive) return;
+        setAnalytics(a.data); setCases(c.data); setLogs(l.data);
+      } catch { /* toast handled globally by pages */ } finally { if (alive) setLoading(false); }
+    })();
+    return () => { alive = false; };
+  }, [user?.role]);
 
-  const stats = {
-    total: cases.length,
-    open: cases.filter(c => c.status === 'Open').length,
-    progress: cases.filter(c => c.status === 'In Progress').length,
-    closed: cases.filter(c => c.status === 'Closed').length,
-  };
+  const critical = useMemo(() => cases.filter(c => ['Critical', 'High'].includes(c.priority) && c.status !== 'Closed').slice(0, 5), [cases]);
+  const recent = useMemo(() => cases.slice(0, 6), [cases]);
+  const total = analytics?.totalCases || 0;
+  const pct = (n) => (total ? Math.round((n / total) * 100) : 0);
 
   if (loading) {
     return (
-      <div className="page-body">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20, marginBottom: 28 }}>
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="skeleton" style={{ height: 110, borderRadius: 20 }} />
-          ))}
-        </div>
-        <div className="skeleton" style={{ height: 300, borderRadius: 20 }} />
+      <div style={{ display: 'grid', gap: 16 }} aria-busy="true">
+        <Skeleton h={34} w={280} />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>{[0, 1, 2, 3, 4].map(i => <Skeleton key={i} h={112} r={16} />)}</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}><Skeleton h={360} r={16} /><Skeleton h={360} r={16} /></div>
       </div>
     );
   }
 
   return (
-    <motion.div className="page-body" variants={containerVariants} initial="hidden" animate="visible">
-
+    <Reveal each={0.06}>
       {/* Header */}
-      <motion.div variants={itemVariants} style={{ marginBottom: 28 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div>
-            <h1 style={{ fontFamily: "'Space Grotesk'", fontSize: 26, fontWeight: 800, color: '#0f172a', marginBottom: 4 }}>
-              Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 17 ? 'Afternoon' : 'Evening'},{' '}
-              <span className="gradient-text">{user?.name?.split(' ')[0]}</span> 👋
-            </h1>
-            <p style={{ color: '#64748b', fontSize: 14 }}>
-              Here's your operations overview for today, {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-            </p>
-          </div>
+      <Reveal.Item className="page-header">
+        <div>
+          <div className="eyebrow" style={{ marginBottom: 6 }}>{new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</div>
+          <h1>{greeting()}, {user?.name?.split(' ')[0]}</h1>
+          <p>Here's the state of your evidence vault and active investigations.</p>
         </div>
-      </motion.div>
-
-      {/* Quick Command Action Launchpad */}
-      <motion.div variants={itemVariants} style={{
-        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 24
-      }}>
-        {[
-          { label: 'Register New Investigation', desc: 'Seal new case dossier', icon: FolderOpen, color: '#1d4ed8', bg: '#eff6ff', action: () => navigate('/cases?create=true') },
-          { label: 'Run Vault Integrity Audit', desc: 'Scan all SHA-256 seals', icon: Shield, color: '#16a34a', bg: '#f0fdf4', action: () => navigate('/evidence?audit=true') },
-          { label: 'AI Forensic Studio', desc: 'Gemini 2.5 Multimodal RAG', icon: Sparkles, color: '#7c3aed', bg: '#faf5ff', action: () => navigate('/ai-studio') },
-          { label: 'Compliance Audit Trail', desc: 'Export court-admissible logs', icon: ClipboardList, color: '#0891b2', bg: '#ecfeff', action: () => navigate('/audit-logs') },
-        ].map((act, i) => {
-          const Icon = act.icon;
-          return (
-            <div key={i}
-              onClick={act.action}
-              style={{
-                background: 'white', borderRadius: 16, border: '1px solid var(--border)',
-                padding: '16px 18px', cursor: 'pointer', transition: 'all 0.2s',
-                display: 'flex', alignItems: 'center', gap: 14
-              }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 25px rgba(29,78,216,0.1)'; e.currentTarget.style.borderColor = act.color; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = 'var(--border)'; }}>
-              <div style={{ width: 42, height: 42, borderRadius: 12, background: act.bg, color: act.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Icon size={20} />
-              </div>
-              <div>
-                <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0f172a' }}>{act.label}</div>
-                <div style={{ fontSize: 11, color: '#64748b' }}>{act.desc}</div>
-              </div>
-            </div>
-          );
-        })}
-      </motion.div>
-
-      {/* Stat Cards */}
-      <motion.div variants={itemVariants}
-        style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 24 }}>
-        <StatCard icon={FolderOpen} label="Total Cases" value={stats.total} color="#1d4ed8"
-          gradient="linear-gradient(90deg, #1d4ed8, #3b82f6)" trend="+2 this week" onClick={() => navigate('/cases')} />
-        <StatCard icon={AlertCircle} label="Open Cases" value={stats.open} color="#16a34a"
-          gradient="linear-gradient(90deg, #16a34a, #22c55e)" onClick={() => navigate('/cases?status=Open')} />
-        <StatCard icon={Clock} label="In Progress" value={stats.progress} color="#ca8a04"
-          gradient="linear-gradient(90deg, #ca8a04, #fbbf24)" onClick={() => navigate('/cases?status=In Progress')} />
-        <StatCard icon={CheckCircle} label="Closed Cases" value={stats.closed} color="#64748b"
-          gradient="linear-gradient(90deg, #475569, #64748b)" onClick={() => navigate('/cases?status=Closed')} />
-      </motion.div>
-
-
-      {/* Case Distribution Progress Analytics Bar */}
-      <motion.div variants={itemVariants}
-        style={{
-          background: 'white', borderRadius: 20, border: '1px solid var(--border)',
-          padding: 20, marginBottom: 24, boxShadow: '0 4px 20px rgba(0,0,0,0.02)'
-        }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', fontFamily: "'Space Grotesk'" }}>
-              Case Health & Status Distribution
-            </div>
-            <div style={{ fontSize: 12, color: '#64748b' }}>Live workload metrics across active investigations</div>
-          </div>
-          <div style={{ display: 'flex', gap: 14, fontSize: 12, fontWeight: 600 }}>
-            <span style={{ color: '#16a34a', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#16a34a' }} />
-              Open ({stats.total ? Math.round((stats.open / stats.total) * 100) : 0}%)
-            </span>
-            <span style={{ color: '#ca8a04', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ca8a04' }} />
-              In Progress ({stats.total ? Math.round((stats.progress / stats.total) * 100) : 0}%)
-            </span>
-            <span style={{ color: '#64748b', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#64748b' }} />
-              Closed ({stats.total ? Math.round((stats.closed / stats.total) * 100) : 0}%)
-            </span>
-          </div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <motion.button className="btn btn-outline" whileTap={{ scale: 0.98 }} onClick={() => navigate('/evidence')}><Upload size={16} /> Ingest evidence</motion.button>
+          {user?.role !== 'analyst' && (
+            <motion.button className="btn btn-primary" whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }} transition={spring} onClick={() => navigate('/cases?create=true')}><Plus size={16} /> New case</motion.button>
+          )}
         </div>
+      </Reveal.Item>
 
-        {/* Progress Bar Container */}
-        <div style={{ height: 10, borderRadius: 99, background: '#f1f5f9', display: 'flex', overflow: 'hidden', gap: 2 }}>
-          <div style={{ width: `${stats.total ? (stats.open / stats.total) * 100 : 0}%`, background: 'linear-gradient(90deg, #16a34a, #22c55e)', transition: 'width 0.5s ease' }} />
-          <div style={{ width: `${stats.total ? (stats.progress / stats.total) * 100 : 0}%`, background: 'linear-gradient(90deg, #ca8a04, #eab308)', transition: 'width 0.5s ease' }} />
-          <div style={{ width: `${stats.total ? (stats.closed / stats.total) * 100 : 0}%`, background: 'linear-gradient(90deg, #64748b, #94a3b8)', transition: 'width 0.5s ease' }} />
-        </div>
-      </motion.div>
+      {/* KPI row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 14, marginBottom: 16 }}>
+        <StatTile icon={FolderOpen} label="Total cases" value={total} tone="primary" to="/cases" hint={`${analytics?.clearanceRate ?? 0}% clearance rate`} />
+        <StatTile icon={AlertTriangle} label="Open" value={analytics?.openCases || 0} tone="success" to="/cases?status=Open" hint={`${pct(analytics?.openCases || 0)}% of caseload`} />
+        <StatTile icon={Clock} label="In progress" value={analytics?.inProgressCases || 0} tone="warning" to="/cases?status=In Progress" hint={`${pct(analytics?.inProgressCases || 0)}% of caseload`} />
+        <StatTile icon={CheckCircle2} label="Closed" value={analytics?.closedCases || 0} tone="info" to="/cases?status=Closed" hint={`${pct(analytics?.closedCases || 0)}% of caseload`} />
+        <StatTile icon={FileText} label="Evidence items" value={analytics?.totalEvidence || 0} tone="purple" to="/evidence" hint="Sealed with SHA-256" />
+      </div>
 
-      {/* Main grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20 }}>
-
-        {/* Recent Cases Table */}
-        <motion.div variants={itemVariants}
-          style={{ background: 'white', borderRadius: 20, border: '1px solid var(--border)', overflow: 'hidden' }}>
-          <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <h2 style={{ fontFamily: "'Space Grotesk'", fontWeight: 700, fontSize: 17, color: '#0f172a' }}>Recent Cases</h2>
-              <p style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>Latest investigation activities</p>
+      {/* Bento grid */}
+      <div className="bento" style={{ display: 'grid', gridTemplateColumns: 'repeat(12, minmax(0, 1fr))', gap: 14 }}>
+        {/* Recent cases */}
+        <Reveal.Item style={{ gridColumn: 'span 8' }}>
+          <SpotlightCard lift={false} style={{ height: '100%' }}>
+            <div className="card-header">
+              <h3 className="card-title"><FolderOpen size={17} style={{ color: 'var(--primary)' }} /> Recent cases</h3>
+              <Link to="/cases" className="btn btn-ghost btn-sm">View all <ArrowUpRight size={14} /></Link>
             </div>
-            <div onClick={() => navigate('/cases')}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#1d4ed8', fontWeight: 600, cursor: 'pointer' }}>
-              <Eye size={13} /> View All
-            </div>
-          </div>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
-                <th style={{ padding: '10px 20px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Case</th>
-                <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Status</th>
-                <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Priority</th>
-                <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Assigned</th>
-              </tr>
-            </thead>
-            <tbody>
-              {cases.slice(0, 6).map((c, i) => (
-                <CaseRow key={c._id} caseItem={c} index={i} onClick={() => navigate(`/cases/${c._id}`)} />
-              ))}
-              {cases.length === 0 && (
-                <tr><td colSpan={4} style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8', fontSize: 14 }}>
-                  No cases found. Create your first case.
-                </td></tr>
-              )}
-            </tbody>
-          </table>
-        </motion.div>
-
-        {/* Activity Feed */}
-        <motion.div variants={itemVariants}
-          style={{ background: 'white', borderRadius: 20, border: '1px solid var(--border)', overflow: 'hidden', height: 'fit-content' }}>
-          <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{
-              width: 30, height: 30, borderRadius: 9, flexShrink: 0,
-              background: 'rgba(29,78,216,0.1)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <Activity size={15} color="#1d4ed8" />
-            </div>
-            <div>
-              <h2 style={{ fontFamily: "'Space Grotesk'", fontWeight: 700, fontSize: 16, color: '#0f172a' }}>Activity Feed</h2>
-              <p style={{ fontSize: 12, color: '#64748b' }}>Recent system events</p>
-            </div>
-          </div>
-          <div style={{ padding: '8px 20px 16px' }}>
-            {logs.length > 0 ? (
-              <ActivityFeed logs={logs} />
+            {recent.length === 0 ? (
+              <EmptyState icon={FolderOpen} title="No cases yet" description="Create your first case to start ingesting evidence." action={user?.role !== 'analyst' && <button className="btn btn-primary btn-sm" onClick={() => navigate('/cases?create=true')}><Plus size={14} /> New case</button>} />
             ) : (
-              <div style={{ textAlign: 'center', padding: '32px 0', color: '#94a3b8', fontSize: 13 }}>
-                {user?.role === 'admin' ? 'No recent activity' : 'Activity feed available for admins'}
+              <div className="table-wrapper" style={{ border: 'none', borderRadius: 0 }}>
+                <table className="table">
+                  <thead><tr><th>Case</th><th>Status</th><th>Priority</th><th>Lead</th><th style={{ textAlign: 'right' }}>Opened</th></tr></thead>
+                  <tbody>
+                    {recent.map((c, i) => (
+                      <motion.tr key={c._id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 + i * 0.04 }}
+                        onClick={() => navigate(`/cases/${c._id}`)} style={{ cursor: 'pointer' }} tabIndex={0} onKeyDown={e => e.key === 'Enter' && navigate(`/cases/${c._id}`)}>
+                        <td>
+                          <div style={{ fontWeight: 600, color: 'var(--text-primary)', maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</div>
+                          <div className="mono" style={{ fontSize: 11.5, color: 'var(--text-faint)' }}>{c.caseNumber}</div>
+                        </td>
+                        <td><Badge variant={statusVariant(c.status)}>{c.status}</Badge></td>
+                        <td><Badge variant={c.priority}>{c.priority}</Badge></td>
+                        <td>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                            <Avatar name={c.assignedTo?.name || '?'} src={c.assignedTo?.avatarUrl} size={24} />
+                            <span style={{ fontSize: 13 }}>{c.assignedTo?.name || <span style={{ color: 'var(--text-faint)' }}>Unassigned</span>}</span>
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'right', color: 'var(--text-muted)', fontSize: 13, whiteSpace: 'nowrap' }}>{fmtDate(c.createdAt)}</td>
+                      </motion.tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
-          </div>
-        </motion.div>
+          </SpotlightCard>
+        </Reveal.Item>
+
+        {/* Integrity */}
+        <Reveal.Item style={{ gridColumn: 'span 4' }}>
+          <SpotlightCard lift={false} spotlightColor="var(--accent-glow)" style={{ height: '100%' }}>
+            <div className="card-header">
+              <h3 className="card-title"><ShieldCheck size={17} style={{ color: 'var(--success)' }} /> Vault integrity</h3>
+              <Badge variant="success"><Fingerprint size={11} /> SHA-256</Badge>
+            </div>
+            <div style={{ padding: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+              <IntegrityRing value={100} />
+              <p style={{ fontSize: 13, textAlign: 'center', color: 'var(--text-muted)', maxWidth: 260 }}>
+                Every stored file is bound to a hash-linked custody ledger. Run a full audit to re-hash all assets.
+              </p>
+              <button className="btn btn-outline btn-block" onClick={() => navigate('/evidence?audit=true')}><Zap size={15} /> Run integrity audit</button>
+            </div>
+          </SpotlightCard>
+        </Reveal.Item>
+
+        {/* Priority queue */}
+        <Reveal.Item style={{ gridColumn: 'span 5' }}>
+          <SpotlightCard lift={false} spotlightColor="var(--danger-soft)" style={{ height: '100%' }}>
+            <div className="card-header">
+              <h3 className="card-title"><AlertTriangle size={17} style={{ color: 'var(--danger)' }} /> Priority queue</h3>
+              <span className="tag">{critical.length} active</span>
+            </div>
+            <div style={{ padding: '8px 12px 12px' }}>
+              {critical.length === 0 ? (
+                <EmptyState icon={CheckCircle2} title="Nothing urgent" description="No open Critical or High priority cases." />
+              ) : critical.map((c) => (
+                <motion.button key={c._id} onClick={() => navigate(`/cases/${c._id}`)} whileHover={{ x: 3 }} transition={spring}
+                  initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '10px 10px', borderRadius: 12, background: 'none', border: 'none', textAlign: 'left', color: 'inherit' }}>
+                  <span style={{ width: 8, height: 36, borderRadius: 99, background: c.priority === 'Critical' ? 'var(--danger)' : '#f97316', flexShrink: 0 }} aria-hidden="true" />
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ display: 'block', fontWeight: 600, fontSize: 14, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</span>
+                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{c.caseNumber} · {c.status}</span>
+                  </span>
+                  <Badge variant={c.priority}>{c.priority}</Badge>
+                </motion.button>
+              ))}
+            </div>
+          </SpotlightCard>
+        </Reveal.Item>
+
+        {/* Quick actions + activity */}
+        <Reveal.Item style={{ gridColumn: 'span 7' }}>
+          <SpotlightCard lift={false} style={{ height: '100%' }}>
+            <div className="card-header">
+              <h3 className="card-title"><Activity size={17} style={{ color: 'var(--primary)' }} /> {user?.role === 'admin' ? 'Security telemetry' : 'Quick actions'}</h3>
+              {user?.role === 'admin' && <Link to="/audit-logs" className="btn btn-ghost btn-sm">Audit trail <ArrowUpRight size={14} /></Link>}
+            </div>
+            <div style={{ padding: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: user?.role === 'admin' && logs.length ? 18 : 0 }}>
+                {[
+                  { icon: Search, label: 'Search vault', to: '/evidence' },
+                  { icon: Sparkles, label: 'AI Studio', to: '/ai-studio' },
+                  { icon: ClipboardList, label: 'Notifications', to: '/notifications' },
+                ].map(a => (
+                  <motion.button key={a.label} onClick={() => navigate(a.to)} whileHover={{ y: -2 }} whileTap={{ scale: 0.98 }} transition={spring}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-primary)', fontWeight: 600, fontSize: 13.5 }}>
+                    <a.icon size={16} style={{ color: 'var(--primary)' }} /> {a.label}
+                  </motion.button>
+                ))}
+              </div>
+              {user?.role === 'admin' && logs.length > 0 && (
+                <div style={{ display: 'grid', gap: 2 }}>
+                  {logs.slice(0, 6).map((log, i) => (
+                    <motion.div key={log._id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 + i * 0.04 }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 6px', borderBottom: i < 5 ? '1px solid var(--border)' : 'none' }}>
+                      <span style={{ width: 6, height: 6, borderRadius: 99, background: /tamper|fail|block/i.test(log.action + log.details) ? 'var(--danger)' : 'var(--success)' }} aria-hidden="true" />
+                      <span style={{ flex: 1, minWidth: 0, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{log.user?.name || 'System'}</strong>
+                        <span style={{ color: 'var(--text-muted)' }}> · {log.action}</span>
+                      </span>
+                      <span style={{ fontSize: 11.5, color: 'var(--text-faint)', whiteSpace: 'nowrap' }}>{timeAgo(log.timestamp)}</span>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </SpotlightCard>
+        </Reveal.Item>
       </div>
-    </motion.div>
+
+      <style>{`
+        @media (max-width: 1100px) { .bento > * { grid-column: span 12 !important; } }
+      `}</style>
+    </Reveal>
   );
 }

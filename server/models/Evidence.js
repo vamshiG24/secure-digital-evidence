@@ -54,6 +54,10 @@ const evidenceSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    storagePublicId: {
+        type: String, // Cloudinary authenticated asset id; absent on legacy public uploads
+        default: ''
+    },
     fileType: {
         type: String,
         required: true
@@ -88,9 +92,7 @@ const evidenceSchema = new mongoose.Schema({
     metadata: {
         mimeType: String,
         extension: String,
-        dimensions: String,
-        exifData: mongoose.Schema.Types.Mixed,
-        fileEntropy: Number
+        fileEntropy: Number // Shannon entropy (0-8 bits/byte), computed on ingest
     },
     chainOfCustody: [custodyBlockSchema],
     uploadedAt: {
@@ -98,6 +100,15 @@ const evidenceSchema = new mongoose.Schema({
         default: Date.now
     }
 });
+
+// Never expose raw storage locations to API consumers; all reads go through
+// the authenticated /download and /preview endpoints.
+const hideStorage = (doc, ret) => {
+    delete ret.filePath;
+    delete ret.storagePublicId;
+    return ret;
+};
+evidenceSchema.set('toJSON', { transform: hideStorage });
 
 module.exports = mongoose.model('Evidence', evidenceSchema);
 

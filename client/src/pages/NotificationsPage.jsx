@@ -1,157 +1,108 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import API from '../api/axios';
-import toast from 'react-hot-toast';
-import { Bell, CheckCheck, Info, AlertTriangle, CheckCircle, XCircle, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { Bell, CheckCheck, Info, AlertTriangle, CheckCircle2, XCircle, ArrowUpRight, Inbox } from 'lucide-react';
+import useNotifications from '../hooks/useNotifications.jsx';
+import { Reveal, Skeleton, EmptyState, Badge, spring } from '../components/ui';
 
-const typeConfig = {
-  info: { icon: Info, color: '#1d4ed8', bg: 'rgba(29,78,216,0.08)', border: 'rgba(29,78,216,0.15)' },
-  warning: { icon: AlertTriangle, color: '#ca8a04', bg: 'rgba(234,179,8,0.08)', border: 'rgba(234,179,8,0.2)' },
-  success: { icon: CheckCircle, color: '#16a34a', bg: 'rgba(34,197,94,0.08)', border: 'rgba(34,197,94,0.2)' },
-  error: { icon: XCircle, color: '#dc2626', bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.2)' },
+const TYPE = {
+  info: { icon: Info, tone: 'primary' },
+  warning: { icon: AlertTriangle, tone: 'warning' },
+  success: { icon: CheckCircle2, tone: 'success' },
+  error: { icon: XCircle, tone: 'danger' },
+};
+
+const timeAgo = (d) => {
+  const s = Math.floor((Date.now() - new Date(d)) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
+  return new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+};
+
+const groupLabel = (d) => {
+  const date = new Date(d); const now = new Date();
+  if (date.toDateString() === now.toDateString()) return 'Today';
+  const y = new Date(now); y.setDate(now.getDate() - 1);
+  if (date.toDateString() === y.toDateString()) return 'Yesterday';
+  return 'Earlier';
 };
 
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { items, unreadCount, loading, markRead, markAllRead } = useNotifications();
+  const [filter, setFilter] = useState('all');
   const navigate = useNavigate();
 
-  useEffect(() => {
-    fetchNotifs();
-  }, []);
-
-  const fetchNotifs = async () => {
-    try {
-      const { data } = await API.get('/api/notifications');
-      setNotifications(data);
-    } catch {
-      toast.error('Failed to load notifications');
-    } finally {
-      setLoading(false);
+  const visible = useMemo(() => (filter === 'unread' ? items.filter(n => !n.isRead) : items), [items, filter]);
+  const groups = useMemo(() => {
+    const map = new Map();
+    for (const n of visible) {
+      const k = groupLabel(n.createdAt);
+      if (!map.has(k)) map.set(k, []);
+      map.get(k).push(n);
     }
-  };
-
-  const markRead = async (id) => {
-    try {
-      await API.put(`/api/notifications/${id}/read`);
-      setNotifications(prev => prev.map(n => n._id === id ? { ...n, isRead: true } : n));
-    } catch {}
-  };
-
-  const markAllRead = async () => {
-    const unread = notifications.filter(n => !n.isRead);
-    await Promise.all(unread.map(n => API.put(`/api/notifications/${n._id}/read`).catch(() => {})));
-    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-    toast.success('All notifications marked as read');
-  };
-
-  const unreadCount = notifications.filter(n => !n.isRead).length;
-
-  const container = {
-    hidden: {}, visible: { transition: { staggerChildren: 0.06 } }
-  };
-  const item = {
-    hidden: { opacity: 0, x: -20 }, visible: { opacity: 1, x: 0 }
-  };
+    return Array.from(map.entries());
+  }, [visible]);
 
   return (
-    <>
-      <div className="page-header">
+    <Reveal each={0.05}>
+      <Reveal.Item className="page-header">
         <div>
-          <h1 style={{ fontFamily: "'Space Grotesk'", fontSize: 22, fontWeight: 800, color: '#0f172a' }}>Notifications</h1>
-          <p style={{ color: '#64748b', fontSize: 14 }}>
-            {unreadCount > 0 ? `${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}` : 'All caught up!'}
-          </p>
+          <h1>Notifications</h1>
+          <p>{unreadCount > 0 ? `${unreadCount} unread` : 'You are all caught up'} · live updates enabled</p>
         </div>
-        {unreadCount > 0 && (
-          <motion.button className="btn btn-outline" onClick={markAllRead}
-            whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-            <CheckCheck size={15} /> Mark all read
-          </motion.button>
-        )}
-      </div>
-
-      <div className="page-body">
-        {loading ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {[...Array(5)].map((_, i) => <div key={i} className="skeleton" style={{ height: 80, borderRadius: 14 }} />)}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div role="tablist" aria-label="Filter" style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 12, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+            {['all', 'unread'].map(f => (
+              <button key={f} role="tab" aria-selected={filter === f} onClick={() => setFilter(f)} className="btn btn-sm" style={{ position: 'relative', background: 'transparent', color: filter === f ? 'var(--text-primary)' : 'var(--text-muted)', textTransform: 'capitalize', minHeight: 32 }}>
+                {filter === f && <motion.span layoutId="notif-pill" transition={spring} style={{ position: 'absolute', inset: 0, borderRadius: 8, background: 'var(--surface)', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--border)' }} />}
+                <span style={{ position: 'relative' }}>{f}</span>
+              </button>
+            ))}
           </div>
-        ) : notifications.length === 0 ? (
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-            style={{ textAlign: 'center', padding: '100px 20px' }}>
-            <motion.div
-              animate={{ y: [0, -10, 0] }}
-              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}>
-              <Bell size={64} color="#e2e8f0" style={{ marginBottom: 20 }} />
-            </motion.div>
-            <h3 style={{ fontWeight: 700, fontSize: 18, color: '#475569', marginBottom: 6 }}>No notifications yet</h3>
-            <p style={{ color: '#94a3b8', fontSize: 14 }}>You'll see case assignments and system alerts here</p>
-          </motion.div>
-        ) : (
-          <motion.div variants={container} initial="hidden" animate="visible"
-            style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 720 }}>
-            {notifications.map((notif, i) => {
-              const tc = typeConfig[notif.type] || typeConfig.info;
-              const IconComp = tc.icon;
-              return (
-                <motion.div key={notif._id} variants={item}
-                  whileHover={{ x: 4, boxShadow: '0 4px 20px rgba(29,78,216,0.1)' }}
-                  style={{
-                    background: notif.isRead ? 'white' : `${tc.bg}`,
-                    border: `1px solid ${notif.isRead ? 'var(--border)' : tc.border}`,
-                    borderRadius: 14, padding: '14px 18px',
-                    display: 'flex', gap: 14, cursor: 'pointer',
-                    opacity: notif.isRead ? 0.75 : 1,
-                    transition: 'all 0.2s ease',
-                    position: 'relative', overflow: 'hidden',
-                  }}
-                  onClick={() => {
-                    markRead(notif._id);
-                    if (notif.relatedLink) navigate(notif.relatedLink);
-                  }}>
-                  {!notif.isRead && (
-                    <div style={{
-                      position: 'absolute', left: 0, top: 0, bottom: 0, width: 3,
-                      background: tc.color, borderRadius: '14px 0 0 14px',
-                    }} />
-                  )}
-                  <div style={{
-                    width: 38, height: 38, borderRadius: 11, flexShrink: 0,
-                    background: tc.bg, border: `1.5px solid ${tc.border}`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    <IconComp size={18} color={tc.color} />
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                      <p style={{ fontSize: 14, fontWeight: notif.isRead ? 500 : 700, color: '#0f172a', lineHeight: 1.4 }}>
-                        {notif.message}
-                      </p>
-                      {!notif.isRead && (
-                        <span style={{
-                          width: 8, height: 8, borderRadius: '50%',
-                          background: tc.color, flexShrink: 0, marginTop: 4,
-                        }} />
-                      )}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 5 }}>
-                      <span style={{ fontSize: 12, color: '#94a3b8' }}>
-                        {new Date(notif.createdAt).toLocaleString()}
+          {unreadCount > 0 && <button className="btn btn-outline btn-sm" onClick={markAllRead}><CheckCheck size={15} /> Mark all read</button>}
+        </div>
+      </Reveal.Item>
+
+      {loading ? (
+        <div style={{ display: 'grid', gap: 10 }}>{[0, 1, 2, 3].map(i => <Skeleton key={i} h={76} r={14} />)}</div>
+      ) : visible.length === 0 ? (
+        <div className="card"><EmptyState icon={filter === 'unread' ? Inbox : Bell} title={filter === 'unread' ? 'No unread notifications' : 'No notifications yet'} description="Case assignments, evidence uploads and integrity alerts will appear here in real time." /></div>
+      ) : (
+        groups.map(([label, list]) => (
+          <div key={label} style={{ marginBottom: 22 }}>
+            <div className="eyebrow" style={{ marginBottom: 10 }}>{label}</div>
+            <div style={{ display: 'grid', gap: 8 }}>
+              <AnimatePresence initial={false}>
+                {list.map(n => {
+                  const t = TYPE[n.type] || TYPE.info;
+                  return (
+                    <motion.div key={n._id} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: 24 }} transition={spring}
+                      className="card card-hover"
+                      style={{ display: 'flex', gap: 14, alignItems: 'flex-start', padding: '14px 16px', borderLeft: `3px solid ${n.isRead ? 'transparent' : `var(--${t.tone})`}`, cursor: n.relatedLink ? 'pointer' : 'default' }}
+                      onClick={() => { if (!n.isRead) markRead(n._id); if (n.relatedLink) navigate(n.relatedLink); }}
+                      role={n.relatedLink ? 'link' : undefined} tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { markRead(n._id); if (n.relatedLink) navigate(n.relatedLink); } }}
+                    >
+                      <span style={{ width: 38, height: 38, borderRadius: 11, flexShrink: 0, display: 'grid', placeItems: 'center', background: `var(--${t.tone}-soft)`, color: `var(--${t.tone})` }}>
+                        <t.icon size={18} aria-hidden="true" />
                       </span>
-                      {notif.relatedLink && (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, color: tc.color, fontWeight: 600 }}>
-                          <ExternalLink size={11} /> View
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </motion.div>
-        )}
-      </div>
-    </>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14.5, color: 'var(--text-primary)', fontWeight: n.isRead ? 500 : 650, lineHeight: 1.45 }}>{n.message}</div>
+                        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 6, fontSize: 12, color: 'var(--text-faint)' }}>
+                          <span>{timeAgo(n.createdAt)}</span>
+                          {!n.isRead && <Badge variant={t.tone} style={{ fontSize: 10 }}>New</Badge>}
+                          {n.relatedLink && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--primary)', fontWeight: 600 }}>Open <ArrowUpRight size={12} /></span>}
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            </div>
+          </div>
+        ))
+      )}
+    </Reveal>
   );
 }

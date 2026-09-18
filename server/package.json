@@ -1,10 +1,10 @@
 {
   "name": "server",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Secure Digital Evidence Management API",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test",
     "seed": "node seeder.js",
     "dev": "nodemon server.js",
     "start": "node server.js",
@@ -12,32 +12,35 @@
     "dev-case": "nodemon microservices/case-service/index.js",
     "dev-evidence": "nodemon microservices/evidence-service/index.js",
     "dev-notification": "nodemon microservices/notification-service/index.js",
-    "dev-audit": "nodemon microservices/audit-service/index.js"
+    "dev-audit": "nodemon microservices/audit-service/index.js",
+    "migrate:evidence": "node scripts/migrateEvidence.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@google/genai": "^2.15.0",
+    "@google/genai": "^2.23.0",
     "bcryptjs": "^3.0.3",
-    "cloudinary": "^1.41.3",
+    "cloudinary": "^2.11.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.2.4",
     "express": "^5.2.1",
-    "helmet": "^8.1.0",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
-    "mongoose": "^9.2.0",
+    "mongoose": "^9.10.1",
     "morgan": "^1.10.1",
-    "multer": "^2.0.2",
-    "multer-storage-cloudinary": "^4.0.0",
-    "nodemailer": "^8.0.10",
+    "multer": "^2.4.0",
+    "nodemailer": "^10.0.10",
     "pdf-parse": "^2.4.5",
-    "redis": "^6.0.0",
+    "redis": "^6.2.1",
     "socket.io": "^4.8.3",
     "streamifier": "^0.1.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.11"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

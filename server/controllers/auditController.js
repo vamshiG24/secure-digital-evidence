@@ -1,4 +1,5 @@
 const AuditLog = require('../models/AuditLog');
+const escapeRegex = require('../utils/escapeRegex');
 
 // @desc    Get all audit logs with optional filtering & pagination
 // @route   GET /api/logs
@@ -13,17 +14,18 @@ exports.getLogs = async (req, res) => {
         }
 
         if (search) {
+            const safe = escapeRegex(search);
             query.$or = [
-                { action: { $regex: search, $options: 'i' } },
-                { details: { $regex: search, $options: 'i' } },
-                { ipAddress: { $regex: search, $options: 'i' } }
+                { action: { $regex: safe, $options: 'i' } },
+                { details: { $regex: safe, $options: 'i' } },
+                { ipAddress: { $regex: safe, $options: 'i' } }
             ];
         }
 
         const logs = await AuditLog.find(query)
             .populate('user', 'name email role')
             .sort({ timestamp: -1 })
-            .limit(parseInt(limit));
+            .limit(Math.min(parseInt(limit, 10) || 100, 1000));
 
         res.json(logs);
     } catch (error) {

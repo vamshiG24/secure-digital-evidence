@@ -1,4 +1,15 @@
 const mongoose = require('mongoose');
+const crypto = require('crypto');
+
+const STATUSES = ['Open', 'In Progress', 'Closed', 'Suspended'];
+const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
+
+// Accept legacy lowercase / snake_case values and normalise to canonical form
+const normalise = (allowed) => (v) => {
+    if (typeof v !== 'string') return v;
+    const key = v.replace(/_/g, ' ').toLowerCase();
+    return allowed.find(a => a.toLowerCase() === key) || v;
+};
 
 const investigatorNoteSchema = new mongoose.Schema({
     author: {
@@ -42,12 +53,14 @@ const caseSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['Open', 'In Progress', 'Closed', 'Suspended', 'open', 'in_progress', 'closed', 'suspended'],
+        enum: STATUSES,
+        set: normalise(STATUSES),
         default: 'Open'
     },
     priority: {
         type: String,
-        enum: ['Low', 'Medium', 'High', 'Critical', 'low', 'medium', 'high', 'critical'],
+        enum: PRIORITIES,
+        set: normalise(PRIORITIES),
         default: 'Medium'
     },
     tags: [{
@@ -83,7 +96,7 @@ const caseSchema = new mongoose.Schema({
 caseSchema.pre('save', function () {
     if (!this.caseNumber) {
         const year = new Date().getFullYear();
-        const rand = Math.floor(1000 + Math.random() * 9000);
+        const rand = crypto.randomInt(100000, 999999);
         this.caseNumber = `CASE-${year}-${rand}`;
     }
 });

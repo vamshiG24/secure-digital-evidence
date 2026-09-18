@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import API from '../api/axios';
 import toast from 'react-hot-toast';
 import AiEvidenceAssistant from '../components/AiEvidenceAssistant';
-import { Sparkles, FolderOpen, Shield, Bot, Search, FileText } from 'lucide-react';
+import { Sparkles, FolderOpen } from 'lucide-react';
 
 export default function AiStudioPage() {
   const [cases, setCases] = useState([]);
@@ -21,7 +21,7 @@ export default function AiStudioPage() {
           setSelectedCaseId(data[0]._id);
           setSelectedCase(data[0]);
         }
-      } catch (err) {
+      } catch {
         toast.error('Failed to load cases');
       } finally {
         setLoading(false);
@@ -48,17 +48,17 @@ export default function AiStudioPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ 
               width: 42, height: 42, borderRadius: 12, 
-              background: 'linear-gradient(135deg, #1d4ed8, #06b6d4)', 
+              background: 'linear-gradient(135deg, var(--primary), var(--accent))', 
               display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white',
-              boxShadow: '0 4px 16px rgba(29,78,216,0.3)' 
+              boxShadow: '0 4px 16px var(--border-brand)' 
             }}>
               <Sparkles size={22} />
             </div>
             <div>
-              <h1 style={{ fontFamily: "'Space Grotesk'", fontSize: 22, fontWeight: 800, color: '#0f172a', margin: 0 }}>
+              <h1 style={{ fontFamily: "'Space Grotesk'", fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
                 AI Forensic Studio & Multimodal RAG
               </h1>
-              <p style={{ color: '#64748b', fontSize: 13, margin: 0 }}>
+              <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: 0 }}>
                 Dedicated Generative AI Intelligence Suite for Evidence Analysis & Report Synthesis
               </p>
             </div>
@@ -67,9 +67,9 @@ export default function AiStudioPage() {
 
         {/* Case Selector Dropdown */}
         {cases.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'white', padding: '8px 14px', borderRadius: 14, border: '1px solid var(--border)' }}>
-            <FolderOpen size={16} style={{ color: '#1d4ed8' }} />
-            <span style={{ fontSize: 13, fontWeight: 600, color: '#475569' }}>Active Case:</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--surface)', padding: '8px 14px', borderRadius: 14, border: '1px solid var(--border)' }}>
+            <FolderOpen size={16} style={{ color: 'var(--primary)' }} />
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>Active Case:</span>
             <select
               className="input"
               value={selectedCaseId}
@@ -89,7 +89,7 @@ export default function AiStudioPage() {
           <div className="skeleton" style={{ height: 600, borderRadius: 20 }} />
         ) : !selectedCase ? (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-            style={{ textAlign: 'center', padding: '80px 20px', color: '#94a3b8', background: 'white', borderRadius: 20, border: '1px solid var(--border)' }}>
+            style={{ textAlign: 'center', padding: '80px 20px', color: 'var(--text-faint)', background: 'var(--surface)', borderRadius: 20, border: '1px solid var(--border)' }}>
             <FolderOpen size={56} style={{ opacity: 0.3, marginBottom: 16 }} />
             <p style={{ fontSize: 17, fontWeight: 600 }}>No cases available</p>
             <p style={{ fontSize: 13 }}>Create a case to start using the AI Forensic Studio.</p>

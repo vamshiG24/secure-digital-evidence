@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import API from '../api/axios';
 import toast from 'react-hot-toast';
-import { FolderOpen, Save, Trash2, X, Loader2, User, AlertCircle } from 'lucide-react';
+import { FolderOpen, Save, Trash2, X, Loader2 } from 'lucide-react';
 
 export default function EditCaseModal({ isOpen, onClose, caseItem, onCaseUpdated, onCaseDeleted, isAdmin }) {
   const [title, setTitle] = useState(caseItem?.title || '');
@@ -75,32 +75,32 @@ export default function EditCaseModal({ isOpen, onClose, caseItem, onCaseUpdated
     <AnimatePresence>
       <div style={{
         position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1100,
-        background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)',
+        background: 'var(--overlay)', backdropFilter: 'blur(4px)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20
       }}>
         <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
           style={{
-            background: 'white', borderRadius: 24, padding: 24, width: '100%', maxWidth: 520,
-            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', border: '1px solid var(--border)'
+            background: 'var(--surface)', borderRadius: 24, padding: 24, width: '100%', maxWidth: 520,
+            boxShadow: '0 25px 50px -12px var(--overlay)', border: '1px solid var(--border)'
           }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, #1d4ed8, #06b6d4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, var(--primary), var(--accent))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
                 <FolderOpen size={20} />
               </div>
               <div>
-                <h3 style={{ fontSize: 16, fontWeight: 700, color: '#0f172a', margin: 0 }}>Edit Case Details</h3>
-                <span style={{ fontSize: 12, color: '#64748b' }}>Update status, priority, or assigned investigator</span>
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Edit Case Details</h3>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Update status, priority, or assigned investigator</span>
               </div>
             </div>
-            <button type="button" onClick={onClose} style={{ border: 'none', background: '#f1f5f9', borderRadius: 8, padding: 6, cursor: 'pointer', color: '#64748b' }}>
+            <button type="button" onClick={onClose} style={{ border: 'none', background: 'var(--surface-2)', borderRadius: 8, padding: 6, cursor: 'pointer', color: 'var(--text-muted)' }}>
               <X size={18} />
             </button>
           </div>
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6 }}>Case Title</label>
+              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Case Title</label>
               <input
                 type="text"
                 className="input"
@@ -111,7 +111,7 @@ export default function EditCaseModal({ isOpen, onClose, caseItem, onCaseUpdated
             </div>
 
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6 }}>Description</label>
+              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Description</label>
               <textarea
                 className="input"
                 rows={3}
@@ -123,7 +123,7 @@ export default function EditCaseModal({ isOpen, onClose, caseItem, onCaseUpdated
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6 }}>Priority Level</label>
+                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Priority Level</label>
                 <select className="input" value={priority} onChange={e => setPriority(e.target.value)}>
                   <option value="Low">Low</option>
                   <option value="Medium">Medium</option>
@@ -133,7 +133,7 @@ export default function EditCaseModal({ isOpen, onClose, caseItem, onCaseUpdated
               </div>
 
               <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6 }}>Case Status</label>
+                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Case Status</label>
                 <select className="input" value={status} onChange={e => setStatus(e.target.value)}>
                   <option value="Open">Open</option>
                   <option value="In Progress">In Progress</option>
@@ -144,7 +144,7 @@ export default function EditCaseModal({ isOpen, onClose, caseItem, onCaseUpdated
             </div>
 
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 6 }}>Assign Investigator</label>
+              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>Assign Investigator</label>
               <select className="input" value={assignedTo} onChange={e => setAssignedTo(e.target.value)}>
                 <option value="">Unassigned</option>
                 {users.filter(u => u.role === 'investigator' || u.role === 'admin').map(u => (
@@ -156,7 +156,7 @@ export default function EditCaseModal({ isOpen, onClose, caseItem, onCaseUpdated
             <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
               {isAdmin && (
                 <button type="button" className="btn" onClick={handleDelete} disabled={deleting}
-                  style={{ background: 'rgba(239,68,68,0.1)', color: '#dc2626', border: '1px solid rgba(239,68,68,0.2)' }}>
+                  style={{ background: 'var(--danger-soft)', color: 'var(--danger)', border: '1px solid color-mix(in srgb, var(--danger) 30%, transparent)' }}>
                   {deleting ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Trash2 size={16} />}
                 </button>
               )}

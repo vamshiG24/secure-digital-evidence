@@ -1,61 +1,69 @@
-import { Outlet, Navigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { useCallback, useEffect, useState } from 'react';
+import { Outlet, Navigate, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Shield } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import Sidebar from '../components/Sidebar';
 import Navbar from '../components/Navbar';
+import { NotificationsProvider } from '../hooks/useNotifications.jsx';
+import { pageTransition } from '../components/ui/motion';
+
+const COLLAPSE_KEY = 'sde-sidebar-collapsed';
+const readCollapsed = () => { try { return localStorage.getItem(COLLAPSE_KEY) === '1'; } catch { return false; } };
+
+function Splash() {
+  return (
+    <div style={{ height: '100dvh', display: 'grid', placeItems: 'center', background: 'var(--bg)' }} role="status" aria-live="polite">
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
+        <motion.div
+          style={{ width: 56, height: 56, borderRadius: 16, display: 'grid', placeItems: 'center', background: 'linear-gradient(135deg, var(--brand-600), var(--cyan-500))', boxShadow: 'var(--shadow-glow)' }}
+          animate={{ scale: [1, 1.06, 1] }} transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+        >
+          <Shield size={26} color="#fff" />
+        </motion.div>
+        <motion.span animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 1.4, repeat: Infinity }} style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 500 }}>
+          Establishing secure session…
+        </motion.span>
+      </div>
+    </div>
+  );
+}
 
 export default function AppLayout() {
   const { user, loading } = useAuth();
+  const location = useLocation();
+  const [collapsed, setCollapsed] = useState(readCollapsed);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  if (loading) {
-    return (
-      <div style={{
-        height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: 'linear-gradient(135deg, #f0f6ff, #e8f0fe)',
-      }}>
-        <motion.div
-          style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20,
-          }}>
-          <motion.div
-            style={{
-              width: 56, height: 56, borderRadius: 16,
-              background: 'linear-gradient(135deg, #1d4ed8, #3b82f6)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-            animate={{ rotate: [0, 10, -10, 0], scale: [1, 1.05, 1] }}
-            transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
-              <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
-            </svg>
-          </motion.div>
-          <motion.div
-            animate={{ opacity: [0.4, 1, 0.4] }}
-            transition={{ duration: 1.5, repeat: Infinity }}
-            style={{ fontSize: 14, color: '#64748b', fontWeight: 500 }}>
-            Loading SecureEvidence...
-          </motion.div>
-        </motion.div>
-      </div>
-    );
-  }
+  const toggleCollapsed = useCallback(() => {
+    setCollapsed(c => { try { localStorage.setItem(COLLAPSE_KEY, c ? '0' : '1'); } catch { /* ignore */ } return !c; });
+  }, []);
 
-  if (!user) return <Navigate to="/login" replace />;
+  // Close the drawer on navigation and move focus to main content for SR users
+  useEffect(() => {
+    setMobileOpen(false);
+    document.getElementById('main-content')?.focus({ preventScroll: true });
+  }, [location.pathname]);
+
+  if (loading) return <Splash />;
+  if (!user) return <Navigate to="/login" replace state={{ from: location }} />;
 
   return (
-    <div className="page-layout" style={{ display: 'flex', minHeight: '100vh', background: 'var(--off-white)' }}>
-      <Sidebar />
-      <div style={{ marginLeft: 260, flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, height: '100vh', overflow: 'hidden' }}>
-        <Navbar />
-        <main style={{ flex: 1, overflowY: 'auto', padding: 28 }}>
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}>
-            <Outlet />
-          </motion.div>
+    <NotificationsProvider>
+    <div className="app-shell" data-collapsed={collapsed}>
+      <a href="#main-content" className="skip-link">Skip to content</a>
+      <Sidebar collapsed={collapsed} onToggleCollapsed={toggleCollapsed} mobileOpen={mobileOpen} onCloseMobile={() => setMobileOpen(false)} />
+      <div className="app-main">
+        <Navbar onOpenMobileNav={() => setMobileOpen(true)} />
+        <main id="main-content" className="app-content" tabIndex={-1} style={{ outline: 'none' }}>
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div key={location.pathname} {...pageTransition} style={{ willChange: 'opacity, transform' }}>
+              <Outlet />
+            </motion.div>
+          </AnimatePresence>
         </main>
       </div>
     </div>
+    </NotificationsProvider>
   );
 }

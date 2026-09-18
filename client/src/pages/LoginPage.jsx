@@ -1,61 +1,71 @@
-import { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useAuth } from '../context/AuthContext';
-import { useNavigate, Link } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
-  Shield, Mail, Lock, Eye, EyeOff, ArrowRight,
-  User, ChevronRight, Fingerprint, Zap
+  Shield, Mail, Lock, Eye, EyeOff, ArrowRight, User, Fingerprint,
+  Sun, Moon, Hash, Link2, ScanSearch, Sparkles, ArrowLeft, AlertCircle
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
+import { BorderBeam, ShimmerButton, Reveal } from '../components/ui';
+import { easeOut, spring } from '../components/ui/motion';
 
-// Animated background orbs
-const Orb = ({ size, color, x, y, delay }) => (
-  <motion.div
-    style={{
-      position: 'absolute', width: size, height: size,
-      borderRadius: '50%', background: color,
-      filter: 'blur(60px)', left: x, top: y,
-      pointerEvents: 'none',
-    }}
-    animate={{ y: [0, -30, 0], x: [0, 15, 0], scale: [1, 1.1, 1] }}
-    transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut', delay }}
-  />
-);
+const FEATURES = [
+  { icon: Hash, title: 'SHA-256 sealed ingest', text: 'Every file is hashed on arrival and bound to a tamper-evident custody ledger.' },
+  { icon: Link2, title: 'Hash-linked chain of custody', text: 'Each transfer is a block whose hash covers the previous block and the file itself.' },
+  { icon: ScanSearch, title: 'AI forensic inspector', text: 'Entity extraction, timelines and multimodal RAG over case evidence.' },
+];
 
-const particles = Array.from({ length: 18 }, (_, i) => ({
-  id: i,
-  x: Math.random() * 100,
-  y: Math.random() * 100,
-  size: Math.random() * 3 + 1,
-  delay: Math.random() * 5,
-  duration: Math.random() * 8 + 6,
-}));
+const formVariants = {
+  hidden: { opacity: 0, x: 24, filter: 'blur(4px)' },
+  visible: { opacity: 1, x: 0, filter: 'blur(0px)', transition: { duration: 0.35, ease: easeOut } },
+  exit: { opacity: 0, x: -24, filter: 'blur(4px)', transition: { duration: 0.2, ease: easeOut } },
+};
+
+function PasswordField({ id, value, onChange, autoComplete, placeholder = '••••••••••', helper }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="form-group">
+      <label className="label" htmlFor={id}>Password <span className="req" aria-hidden="true">*</span></label>
+      <div className="input-wrapper input-icon">
+        <Lock size={16} className="input-icon-el" aria-hidden="true" />
+        <input id={id} className="input" type={show ? 'text' : 'password'} placeholder={placeholder} value={value}
+          onChange={onChange} required minLength={8} autoComplete={autoComplete} style={{ paddingRight: 46 }} />
+        <button type="button" onClick={() => setShow(s => !s)} aria-label={show ? 'Hide password' : 'Show password'} aria-pressed={show}
+          style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', width: 36, height: 36, display: 'grid', placeItems: 'center', background: 'none', border: 'none', color: 'var(--text-muted)', borderRadius: 8 }}>
+          {show ? <EyeOff size={16} /> : <Eye size={16} />}
+        </button>
+      </div>
+      {helper && <div className="helper">{helper}</div>}
+    </div>
+  );
+}
 
 export default function LoginPage() {
   const [mode, setMode] = useState('login'); // login | register | otp
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [role, setRole] = useState('investigator');
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
-  const [showPass, setShowPass] = useState(false);
+  const [otp, setOtp] = useState(Array(6).fill(''));
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const otpRefs = useRef([]);
-  const { login, verifyOTP, register } = useAuth();
+  const reduce = useReducedMotion();
+  const { login, verifyOTP, register, user } = useAuth();
+  const { theme, toggle } = useTheme();
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from?.pathname || '/dashboard';
 
-  const handleOtpChange = (i, val) => {
-    if (!/^\d*$/.test(val)) return;
-    const next = [...otp];
-    next[i] = val.slice(-1);
-    setOtp(next);
-    if (val && i < 5) otpRefs.current[i + 1]?.focus();
-  };
+  useEffect(() => { if (user) navigate(from, { replace: true }); }, [user, navigate, from]);
+  useEffect(() => { setError(''); }, [mode]);
+  useEffect(() => { if (mode === 'otp') setTimeout(() => otpRefs.current[0]?.focus({ preventScroll: true }), 350); }, [mode]);
 
-  const handleOtpKeyDown = (i, e) => {
-    if (e.key === 'Backspace' && !otp[i] && i > 0) {
-      otpRefs.current[i - 1]?.focus();
-    }
+  const fail = (err, fallback) => {
+    const msg = err.response?.data?.message || fallback;
+    setError(msg);
+    toast.error(msg);
   };
 
   const handleLogin = async (e) => {
@@ -64,309 +74,232 @@ export default function LoginPage() {
     try {
       await login(email, password);
       setMode('otp');
-      toast.success('OTP sent to your email!');
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Login failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyOTP = async (e) => {
-    e.preventDefault();
-    const code = otp.join('');
-    if (code.length < 6) { toast.error('Enter 6-digit OTP'); return; }
-    setLoading(true);
-    try {
-      await verifyOTP(email, code);
-      toast.success('Welcome back!');
-      navigate('/dashboard');
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Invalid OTP');
-    } finally {
-      setLoading(false);
-    }
+      toast.success('Verification code sent to your email');
+    } catch (err) { fail(err, 'Login failed'); } finally { setLoading(false); }
   };
 
   const handleRegister = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await register({ name, email, password, role });
+      await register({ name, email, password });
       setMode('otp');
-      toast.success('OTP sent to verify your account!');
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Registration failed');
-    } finally {
-      setLoading(false);
-    }
+      toast.success('Verify your email to finish creating your account');
+    } catch (err) { fail(err, 'Registration failed'); } finally { setLoading(false); }
   };
 
-  const formVariants = {
-    hidden: { opacity: 0, x: 40, scale: 0.97 },
-    visible: { opacity: 1, x: 0, scale: 1, transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] } },
-    exit: { opacity: 0, x: -40, scale: 0.97, transition: { duration: 0.3 } },
+  const submitOtp = async (code) => {
+    if (code.length < 6) { setError('Enter all 6 digits'); return; }
+    setLoading(true);
+    try {
+      await verifyOTP(email, code);
+      toast.success('Identity verified — welcome');
+      navigate(from, { replace: true });
+    } catch (err) { fail(err, 'Invalid code'); setOtp(Array(6).fill('')); otpRefs.current[0]?.focus(); } finally { setLoading(false); }
   };
+
+  const handleOtpChange = (i, raw) => {
+    const digits = raw.replace(/\D/g, '');
+    if (!digits) { const next = [...otp]; next[i] = ''; setOtp(next); return; }
+    const next = [...otp];
+    // Support paste of the full code into any box
+    digits.split('').slice(0, 6 - i).forEach((d, k) => { next[i + k] = d; });
+    setOtp(next);
+    const lastFilled = Math.min(i + digits.length, 5);
+    otpRefs.current[lastFilled]?.focus();
+    if (next.every(Boolean)) submitOtp(next.join(''));
+  };
+
+  const handleOtpKeyDown = (i, e) => {
+    if (e.key === 'Backspace' && !otp[i] && i > 0) otpRefs.current[i - 1]?.focus();
+    if (e.key === 'ArrowLeft' && i > 0) otpRefs.current[i - 1]?.focus();
+    if (e.key === 'ArrowRight' && i < 5) otpRefs.current[i + 1]?.focus();
+  };
+
+  const heading = { login: 'Welcome back', register: 'Create your account', otp: 'Verify your identity' }[mode];
+  const sub = {
+    login: 'Sign in to the Secure Digital Evidence platform.',
+    register: 'New accounts start as Investigators; an admin can promote you.',
+    otp: <>Enter the 6-digit code we sent to <strong style={{ color: 'var(--text-primary)' }}>{email}</strong>.</>,
+  }[mode];
 
   return (
-    <div style={{
-      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: 'linear-gradient(135deg, #f0f6ff 0%, #e8f0fe 50%, #f0f4ff 100%)',
-      overflow: 'hidden', position: 'relative',
-    }}>
-      {/* Background Orbs */}
-      <Orb size={400} color="rgba(59,130,246,0.15)" x="-10%" y="-10%" delay={0} />
-      <Orb size={350} color="rgba(6,182,212,0.12)" x="60%" y="60%" delay={2} />
-      <Orb size={250} color="rgba(139,92,246,0.1)" x="80%" y="-5%" delay={4} />
+    <div style={{ minHeight: '100dvh', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', background: 'var(--bg)', position: 'relative', overflowX: 'clip' }} className="auth-grid">
+      <div aria-hidden="true" style={{ position: 'fixed', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 0 }}>
+        <div className="bg-aurora" />
+        <div className="bg-dots" style={{ position: 'absolute', inset: 0, opacity: 0.6, maskImage: 'radial-gradient(ellipse at center, #000 30%, transparent 75%)', WebkitMaskImage: 'radial-gradient(ellipse at center, #000 30%, transparent 75%)' }} />
+      </div>
 
-      {/* Floating particles */}
-      {particles.map(p => (
-        <motion.div key={p.id}
-          style={{
-            position: 'absolute', left: `${p.x}%`, top: `${p.y}%`,
-            width: p.size, height: p.size, borderRadius: '50%',
-            background: 'rgba(59,130,246,0.4)', pointerEvents: 'none',
-          }}
-          animate={{ y: [-10, -40, -10], opacity: [0.2, 0.8, 0.2] }}
-          transition={{ duration: p.duration, delay: p.delay, repeat: Infinity, ease: 'easeInOut' }}
-        />
-      ))}
+      <button className="btn btn-ghost btn-icon" onClick={toggle} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+        style={{ position: 'fixed', top: 16, right: 16, zIndex: 2, background: 'var(--surface)', border: '1px solid var(--border)' }}>
+        {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+      </button>
 
-      {/* Grid overlay */}
-      <div className="bg-grid" style={{ position: 'absolute', inset: 0, opacity: 0.4, pointerEvents: 'none' }} />
-
-      {/* Card */}
-      <motion.div
-        initial={{ opacity: 0, y: 40, scale: 0.95 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
-        style={{
-          width: '100%', maxWidth: 440, margin: '20px',
-          background: 'rgba(255,255,255,0.92)',
-          backdropFilter: 'blur(24px)',
-          borderRadius: 28, border: '1px solid rgba(29,78,216,0.12)',
-          boxShadow: '0 24px 80px rgba(29,78,216,0.15), 0 4px 16px rgba(0,0,0,0.06)',
-          overflow: 'hidden', position: 'relative',
-        }}
-      >
-        {/* Top gradient bar */}
-        <div style={{
-          height: 4,
-          background: 'linear-gradient(90deg, #1d4ed8, #3b82f6, #06b6d4)',
-          backgroundSize: '200% 100%',
-          animation: 'gradient-shift 3s ease infinite',
-        }} />
-
-        <div style={{ padding: '36px 40px 40px' }}>
-          {/* Logo */}
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ duration: 0.5, delay: 0.2, type: 'spring', stiffness: 300 }}
-            style={{ display: 'flex', justifyContent: 'center', marginBottom: 28 }}
-          >
-            <div style={{
-              width: 64, height: 64, borderRadius: 18,
-              background: 'linear-gradient(135deg, #1d4ed8, #3b82f6)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 8px 32px rgba(29,78,216,0.35)',
-              position: 'relative',
-            }}>
-              <Shield size={32} color="white" />
-              <motion.div style={{
-                position: 'absolute', inset: -6, borderRadius: 24,
-                border: '2px solid rgba(59,130,246,0.3)',
-              }}
-                animate={{ scale: [1, 1.1, 1], opacity: [0.5, 0.2, 0.5] }}
-                transition={{ duration: 2, repeat: Infinity }}
-              />
-            </div>
-          </motion.div>
-
-          {/* Title */}
-          <AnimatePresence mode="wait">
-            <motion.div key={mode + 'title'} variants={formVariants} initial="hidden" animate="visible" exit="exit">
-              <h1 style={{
-                fontFamily: "'Space Grotesk', sans-serif",
-                fontSize: 26, fontWeight: 700, textAlign: 'center',
-                background: 'linear-gradient(135deg, #0f172a, #1d4ed8)',
-                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                marginBottom: 6,
-              }}>
-                {mode === 'login' ? 'Welcome Back' : mode === 'register' ? 'Create Account' : 'Verify Identity'}
-              </h1>
-              <p style={{ textAlign: 'center', color: '#64748b', fontSize: 14, marginBottom: 28 }}>
-                {mode === 'login' ? 'Secure Evidence Management System' :
-                  mode === 'register' ? 'Join the evidence platform' :
-                    `Enter the 6-digit code sent to ${email}`}
-              </p>
+      {/* Left: brand story */}
+      <section className="auth-hero" style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: 'clamp(32px, 6vw, 80px)' }}>
+        <Reveal each={0.08}>
+          <Reveal.Item style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 36 }}>
+            <motion.div animate={reduce ? {} : { y: [0, -4, 0] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+              style={{ width: 44, height: 44, borderRadius: 13, display: 'grid', placeItems: 'center', background: 'linear-gradient(135deg, var(--brand-600), var(--cyan-500))', boxShadow: 'var(--shadow-glow)' }}>
+              <Shield size={22} color="#fff" />
             </motion.div>
-          </AnimatePresence>
+            <div>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17 }}>SecureEvidence</div>
+              <div className="eyebrow" style={{ fontSize: 10 }}>Digital Forensics Platform</div>
+            </div>
+          </Reveal.Item>
 
-          {/* Forms */}
-          <AnimatePresence mode="wait">
-            {mode === 'login' && (
-              <motion.form key="login" variants={formVariants} initial="hidden" animate="visible" exit="exit"
-                onSubmit={handleLogin}>
-                <div className="form-group">
-                  <label className="label">Email Address</label>
-                  <div className="input-wrapper input-icon">
-                    <Mail size={16} className="input-icon-el" />
-                    <input className="input" type="email" placeholder="admin@secureevidence.com"
-                      value={email} onChange={e => setEmail(e.target.value)} required />
+          <Reveal.Item>
+            <h1 style={{ fontSize: 'clamp(30px, 3.6vw, 46px)', lineHeight: 1.08, letterSpacing: '-0.02em', marginBottom: 16, maxWidth: 560 }}>
+              Court-ready evidence custody,{' '}
+              <span className="gradient-text">cryptographically sealed.</span>
+            </h1>
+          </Reveal.Item>
+          <Reveal.Item>
+            <p style={{ fontSize: 16, maxWidth: 520, marginBottom: 36, color: 'var(--text-muted)' }}>
+              Ingest, hash, transfer and present digital evidence with an immutable audit trail and AI-assisted forensic analysis.
+            </p>
+          </Reveal.Item>
+
+          <div style={{ display: 'grid', gap: 12, maxWidth: 520 }}>
+            {FEATURES.map(f => (
+              <Reveal.Item key={f.title}>
+                <motion.div whileHover={reduce ? {} : { x: 4 }} transition={spring}
+                  style={{ display: 'flex', gap: 14, padding: '14px 16px', borderRadius: 14, background: 'color-mix(in srgb, var(--surface) 70%, transparent)', border: '1px solid var(--border)', backdropFilter: 'blur(10px)' }}>
+                  <span style={{ width: 38, height: 38, borderRadius: 10, flexShrink: 0, display: 'grid', placeItems: 'center', background: 'var(--primary-soft)', color: 'var(--primary)' }}><f.icon size={18} /></span>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--text-primary)' }}>{f.title}</div>
+                    <div style={{ fontSize: 13.5, color: 'var(--text-muted)', lineHeight: 1.45 }}>{f.text}</div>
                   </div>
-                </div>
-                <div className="form-group">
-                  <label className="label">Password</label>
-                  <div className="input-wrapper input-icon" style={{ position: 'relative' }}>
-                    <Lock size={16} className="input-icon-el" />
-                    <input className="input" type={showPass ? 'text' : 'password'}
-                      placeholder="••••••••••" value={password}
-                      onChange={e => setPassword(e.target.value)} required style={{ paddingRight: 44 }} />
-                    <button type="button" onClick={() => setShowPass(!showPass)}
-                      style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', display: 'flex' }}>
-                      {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
+                </motion.div>
+              </Reveal.Item>
+            ))}
+          </div>
+        </Reveal>
+      </section>
+
+      {/* Right: auth card */}
+      <section style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'clamp(20px, 4vw, 48px)' }}>
+        <motion.div
+          initial={{ opacity: 0, y: 24, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.5, ease: easeOut }}
+          style={{ position: 'relative', width: '100%', maxWidth: 440, borderRadius: 24, background: 'var(--bg-elevated)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-lg)' }}
+        >
+          {!reduce && <BorderBeam radius={24} />}
+          <div style={{ padding: 'clamp(24px, 4vw, 40px)' }}>
+            <AnimatePresence mode="wait">
+              <motion.div key={mode + '-head'} variants={formVariants} initial="hidden" animate="visible" exit="exit" style={{ marginBottom: 24 }}>
+                <span className="badge badge-info" style={{ marginBottom: 14 }}>
+                  {mode === 'otp' ? <><Fingerprint size={12} /> Two-factor</> : <><Sparkles size={12} /> Secure access</>}
+                </span>
+                <h2 style={{ fontSize: 26, marginBottom: 6 }}>{heading}</h2>
+                <p style={{ fontSize: 14, color: 'var(--text-muted)' }}>{sub}</p>
+              </motion.div>
+            </AnimatePresence>
+
+            <AnimatePresence>
+              {error && (
+                <motion.div className="alert alert-error" role="alert" initial={{ opacity: 0, height: 0, marginBottom: 0 }} animate={{ opacity: 1, height: 'auto', marginBottom: 16 }} exit={{ opacity: 0, height: 0, marginBottom: 0 }}>
+                  <AlertCircle size={16} style={{ flexShrink: 0, marginTop: 2, color: 'var(--danger)' }} /><span>{error}</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <AnimatePresence mode="wait">
+              {mode === 'login' && (
+                <motion.form key="login" variants={formVariants} initial="hidden" animate="visible" exit="exit" onSubmit={handleLogin} noValidate={false}>
+                  <div className="form-group">
+                    <label className="label" htmlFor="login-email">Email address <span className="req" aria-hidden="true">*</span></label>
+                    <div className="input-wrapper input-icon">
+                      <Mail size={16} className="input-icon-el" aria-hidden="true" />
+                      <input id="login-email" className="input" type="email" inputMode="email" autoComplete="username" placeholder="you@agency.gov" value={email} onChange={e => setEmail(e.target.value)} required autoFocus />
+                    </div>
                   </div>
-                </div>
-                <button className="btn btn-primary btn-lg" type="submit" disabled={loading}
-                  style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}>
-                  {loading ? (
-                    <motion.div style={{ width: 20, height: 20, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: 'white', borderRadius: '50%' }}
-                      animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }} />
-                  ) : (
-                    <><Zap size={16} /> Sign In Securely <ArrowRight size={16} /></>
-                  )}
-                </button>
-                <p style={{ textAlign: 'center', marginTop: 20, fontSize: 14, color: '#64748b' }}>
-                  No account?{' '}
-                  <button type="button" onClick={() => setMode('register')}
-                    style={{ background: 'none', border: 'none', color: '#1d4ed8', fontWeight: 600, cursor: 'pointer', fontSize: 14 }}>
-                    Register here
+                  <PasswordField id="login-password" value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" />
+                  <ShimmerButton type="submit" loading={loading} className="btn-block" style={{ marginTop: 4 }}>
+                    Continue <ArrowRight size={16} />
+                  </ShimmerButton>
+                  <p style={{ textAlign: 'center', marginTop: 20, fontSize: 14, color: 'var(--text-muted)' }}>
+                    No account?{' '}
+                    <button type="button" onClick={() => setMode('register')} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 600, fontSize: 14, padding: 4 }}>Request access</button>
+                  </p>
+                </motion.form>
+              )}
+
+              {mode === 'register' && (
+                <motion.form key="register" variants={formVariants} initial="hidden" animate="visible" exit="exit" onSubmit={handleRegister}>
+                  <div className="form-group">
+                    <label className="label" htmlFor="reg-name">Full name <span className="req" aria-hidden="true">*</span></label>
+                    <div className="input-wrapper input-icon">
+                      <User size={16} className="input-icon-el" aria-hidden="true" />
+                      <input id="reg-name" className="input" type="text" autoComplete="name" placeholder="Jane Doe" value={name} onChange={e => setName(e.target.value)} required autoFocus />
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label className="label" htmlFor="reg-email">Email address <span className="req" aria-hidden="true">*</span></label>
+                    <div className="input-wrapper input-icon">
+                      <Mail size={16} className="input-icon-el" aria-hidden="true" />
+                      <input id="reg-email" className="input" type="email" inputMode="email" autoComplete="email" placeholder="you@agency.gov" value={email} onChange={e => setEmail(e.target.value)} required />
+                    </div>
+                  </div>
+                  <PasswordField id="reg-password" value={password} onChange={e => setPassword(e.target.value)} autoComplete="new-password" helper="At least 8 characters." />
+                  <ShimmerButton type="submit" loading={loading} className="btn-block" style={{ marginTop: 4 }}>
+                    <Shield size={16} /> Create account
+                  </ShimmerButton>
+                  <p style={{ textAlign: 'center', marginTop: 20, fontSize: 14, color: 'var(--text-muted)' }}>
+                    Already registered?{' '}
+                    <button type="button" onClick={() => setMode('login')} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 600, fontSize: 14, padding: 4 }}>Sign in</button>
+                  </p>
+                </motion.form>
+              )}
+
+              {mode === 'otp' && (
+                <motion.form key="otp" variants={formVariants} initial="hidden" animate="visible" exit="exit" onSubmit={(e) => { e.preventDefault(); submitOtp(otp.join('')); }}>
+                  <fieldset style={{ border: 'none' }}>
+                    <legend className="sr-only">Six-digit verification code</legend>
+                    <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 24 }}>
+                      {otp.map((digit, i) => (
+                        <motion.input
+                          key={i}
+                          ref={el => { otpRefs.current[i] = el; }}
+                          value={digit}
+                          onChange={e => handleOtpChange(i, e.target.value)}
+                          onKeyDown={e => handleOtpKeyDown(i, e)}
+                          onFocus={e => e.target.select()}
+                          inputMode="numeric" pattern="[0-9]*" autoComplete={i === 0 ? 'one-time-code' : 'off'}
+                          aria-label={`Digit ${i + 1}`}
+                          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04, ...spring }}
+                          className="otp-box"
+                          style={{
+                            width: 'clamp(40px, 11vw, 52px)', height: 58, textAlign: 'center', fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-mono)',
+                            borderRadius: 12, border: `2px solid ${digit ? 'var(--primary)' : 'var(--border-strong)'}`,
+                            background: digit ? 'var(--primary-soft)' : 'var(--surface)', color: 'var(--text-primary)', outline: 'none',
+                            transition: 'border-color 120ms, background 120ms, box-shadow 120ms',
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </fieldset>
+                  <ShimmerButton type="submit" loading={loading} className="btn-block">
+                    <Fingerprint size={16} /> Verify & sign in
+                  </ShimmerButton>
+                  <button type="button" onClick={() => setMode('login')} className="btn btn-ghost btn-block" style={{ marginTop: 10, color: 'var(--text-muted)' }}>
+                    <ArrowLeft size={15} /> Back to sign in
                   </button>
-                </p>
-              </motion.form>
-            )}
+                  <p className="helper" style={{ textAlign: 'center', marginTop: 12 }}>Codes expire after 5 minutes. Check your spam folder if it hasn't arrived.</p>
+                </motion.form>
+              )}
+            </AnimatePresence>
+          </div>
+        </motion.div>
+      </section>
 
-            {mode === 'register' && (
-              <motion.form key="register" variants={formVariants} initial="hidden" animate="visible" exit="exit"
-                onSubmit={handleRegister}>
-                <div className="form-group">
-                  <label className="label">Full Name</label>
-                  <div className="input-wrapper input-icon">
-                    <User size={16} className="input-icon-el" />
-                    <input className="input" type="text" placeholder="John Doe"
-                      value={name} onChange={e => setName(e.target.value)} required />
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label className="label">Email Address</label>
-                  <div className="input-wrapper input-icon">
-                    <Mail size={16} className="input-icon-el" />
-                    <input className="input" type="email" placeholder="your@email.com"
-                      value={email} onChange={e => setEmail(e.target.value)} required />
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label className="label">Password</label>
-                  <div className="input-wrapper input-icon">
-                    <Lock size={16} className="input-icon-el" />
-                    <input className="input" type={showPass ? 'text' : 'password'}
-                      placeholder="••••••••••" value={password}
-                      onChange={e => setPassword(e.target.value)} required style={{ paddingRight: 44 }} />
-                    <button type="button" onClick={() => setShowPass(!showPass)}
-                      style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', display: 'flex' }}>
-                      {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label className="label">Role</label>
-                  <select className="input" value={role} onChange={e => setRole(e.target.value)}>
-                    <option value="investigator">Investigator</option>
-                    <option value="analyst">Analyst</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                </div>
-                <button className="btn btn-primary btn-lg" type="submit" disabled={loading}
-                  style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}>
-                  {loading ? (
-                    <motion.div style={{ width: 20, height: 20, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: 'white', borderRadius: '50%' }}
-                      animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }} />
-                  ) : (
-                    <><Shield size={16} /> Create Account</>
-                  )}
-                </button>
-                <p style={{ textAlign: 'center', marginTop: 20, fontSize: 14, color: '#64748b' }}>
-                  Have an account?{' '}
-                  <button type="button" onClick={() => setMode('login')}
-                    style={{ background: 'none', border: 'none', color: '#1d4ed8', fontWeight: 600, cursor: 'pointer', fontSize: 14 }}>
-                    Sign in
-                  </button>
-                </p>
-              </motion.form>
-            )}
-
-            {mode === 'otp' && (
-              <motion.form key="otp" variants={formVariants} initial="hidden" animate="visible" exit="exit"
-                onSubmit={handleVerifyOTP}>
-                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
-                  <motion.div
-                    animate={{ scale: [1, 1.05, 1] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                    style={{
-                      width: 56, height: 56, borderRadius: 16,
-                      background: 'linear-gradient(135deg, rgba(59,130,246,0.1), rgba(6,182,212,0.1))',
-                      border: '2px solid rgba(59,130,246,0.2)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                    <Fingerprint size={28} color="#1d4ed8" />
-                  </motion.div>
-                </div>
-                <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 28 }}>
-                  {otp.map((digit, i) => (
-                    <motion.input
-                      key={i}
-                      ref={el => otpRefs.current[i] = el}
-                      value={digit}
-                      onChange={e => handleOtpChange(i, e.target.value)}
-                      onKeyDown={e => handleOtpKeyDown(i, e)}
-                      maxLength={1}
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      transition={{ delay: i * 0.06, type: 'spring', stiffness: 400 }}
-                      style={{
-                        width: 48, height: 56, textAlign: 'center',
-                        fontSize: 22, fontWeight: 700,
-                        borderRadius: 12,
-                        border: digit ? '2px solid #3b82f6' : '2px solid rgba(29,78,216,0.15)',
-                        background: digit ? 'rgba(59,130,246,0.06)' : 'white',
-                        color: '#1d4ed8',
-                        outline: 'none',
-                        transition: 'all 0.2s ease',
-                        fontFamily: 'inherit',
-                      }}
-                    />
-                  ))}
-                </div>
-                <button className="btn btn-primary btn-lg" type="submit" disabled={loading}
-                  style={{ width: '100%', justifyContent: 'center' }}>
-                  {loading ? (
-                    <motion.div style={{ width: 20, height: 20, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: 'white', borderRadius: '50%' }}
-                      animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }} />
-                  ) : (
-                    <><Fingerprint size={16} /> Verify & Access</>
-                  )}
-                </button>
-                <button type="button" onClick={() => setMode('login')}
-                  style={{ width: '100%', background: 'none', border: 'none', color: '#64748b', fontSize: 14, marginTop: 16, cursor: 'pointer' }}>
-                  ← Back to login
-                </button>
-              </motion.form>
-            )}
-          </AnimatePresence>
-        </div>
-      </motion.div>
+      <style>{`
+        .otp-box:focus { box-shadow: 0 0 0 3px var(--ring); border-color: var(--primary) !important; }
+        @media (max-width: 900px) {
+          .auth-grid { grid-template-columns: 1fr !important; }
+          .auth-hero { display: none !important; }
+        }
+      `}</style>
     </div>
   );
 }

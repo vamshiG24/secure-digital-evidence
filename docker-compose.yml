@@ -1,11 +1,9 @@
-version: '3.8'
-
 services:
   redis:
     image: redis:alpine
     container_name: secure-evidence-redis
-    ports:
-      - "6379:6379"
+    expose:
+      - "6379"
     volumes:
       - redis-data:/data
     restart: unless-stopped
@@ -17,7 +15,9 @@ services:
 
   user-service:
     image: secure-evidence-backend:latest
-    build: ./server
+    build:
+      context: ./server
+      target: ${BUILD_TARGET:-dev}
     container_name: secure-evidence-user-service
     command: npm run dev-user
     expose:
@@ -27,6 +27,8 @@ services:
     environment:
       - PORT=5001
       - REDIS_URL=redis://redis:6379
+      - NODE_ENV=${NODE_ENV:-development}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost}
     depends_on:
       redis:
         condition: service_healthy
@@ -37,7 +39,9 @@ services:
 
   case-service:
     image: secure-evidence-backend:latest
-    build: ./server
+    build:
+      context: ./server
+      target: ${BUILD_TARGET:-dev}
     container_name: secure-evidence-case-service
     command: npm run dev-case
     expose:
@@ -47,6 +51,8 @@ services:
     environment:
       - PORT=5002
       - REDIS_URL=redis://redis:6379
+      - NODE_ENV=${NODE_ENV:-development}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost}
     depends_on:
       redis:
         condition: service_healthy
@@ -57,7 +63,9 @@ services:
 
   evidence-service:
     image: secure-evidence-backend:latest
-    build: ./server
+    build:
+      context: ./server
+      target: ${BUILD_TARGET:-dev}
     container_name: secure-evidence-evidence-service
     command: npm run dev-evidence
     expose:
@@ -67,6 +75,8 @@ services:
     environment:
       - PORT=5003
       - REDIS_URL=redis://redis:6379
+      - NODE_ENV=${NODE_ENV:-development}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost}
     depends_on:
       redis:
         condition: service_healthy
@@ -77,7 +87,9 @@ services:
 
   notification-service:
     image: secure-evidence-backend:latest
-    build: ./server
+    build:
+      context: ./server
+      target: ${BUILD_TARGET:-dev}
     container_name: secure-evidence-notification-service
     command: npm run dev-notification
     expose:
@@ -87,6 +99,8 @@ services:
     environment:
       - PORT=5004
       - REDIS_URL=redis://redis:6379
+      - NODE_ENV=${NODE_ENV:-development}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost}
     depends_on:
       redis:
         condition: service_healthy
@@ -97,7 +111,9 @@ services:
 
   audit-service:
     image: secure-evidence-backend:latest
-    build: ./server
+    build:
+      context: ./server
+      target: ${BUILD_TARGET:-dev}
     container_name: secure-evidence-audit-service
     command: npm run dev-audit
     expose:
@@ -107,6 +123,8 @@ services:
     environment:
       - PORT=5005
       - REDIS_URL=redis://redis:6379
+      - NODE_ENV=${NODE_ENV:-development}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost}
     depends_on:
       redis:
         condition: service_healthy
@@ -117,12 +135,15 @@ services:
 
 
   frontend:
-    build: ./client
+    build:
+      context: ./client
+      target: ${BUILD_TARGET:-dev}
     container_name: secure-evidence-frontend
-    ports:
-      - "5174:5173"
+    expose:
+      - "5173"
     environment:
       - VITE_PROXY_TARGET=http://nginx:80
+      - VITE_API_URL=
     depends_on:
       - user-service
       - case-service

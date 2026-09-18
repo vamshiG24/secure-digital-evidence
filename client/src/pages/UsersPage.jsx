@@ -1,28 +1,27 @@
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import API from '../api/axios';
+import { useEffect, useMemo, useState } from 'react';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { Users, Shield, Search, Activity, Camera, Building, BadgeCheck, Mail, X, Check, Edit2 } from 'lucide-react';
+import { Search, Users, ShieldCheck, UserCog, Trash2, Mail, Building2, BadgeCheck, Ban, AlertTriangle } from 'lucide-react';
+import API from '../api/axios';
+import { useAuth } from '../context/AuthContext';
+import { SpotlightCard, Reveal, Badge, Avatar, Skeleton, EmptyState, Modal, ShimmerButton, spring } from '../components/ui';
 
-const roleStyles = {
-  admin: { bg: 'rgba(239,68,68,0.1)', color: '#dc2626', border: 'rgba(239,68,68,0.2)' },
-  investigator: { bg: 'rgba(59,130,246,0.1)', color: '#1d4ed8', border: 'rgba(59,130,246,0.2)' },
-  analyst: { bg: 'rgba(34,197,94,0.1)', color: '#16a34a', border: 'rgba(34,197,94,0.2)' },
-};
+const ROLE_TONE = { admin: 'danger', investigator: 'info', analyst: 'success' };
+const STATUS_TONE = { active: 'success', suspended: 'warning', inactive: 'neutral' };
+const ROLES = ['admin', 'investigator', 'analyst'];
+const STATUSES = ['active', 'suspended', 'inactive'];
 
 export default function UsersPage() {
+  const { user: me } = useAuth();
+  const isAdmin = me?.role === 'admin';
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [editAvatarUrl, setEditAvatarUrl] = useState('');
-  const [editDepartment, setEditDepartment] = useState('');
-  const [editBadgeId, setEditBadgeId] = useState('');
-  const [editBio, setEditBio] = useState('');
-
-  useEffect(() => {
-    fetchUsers();
-  }, []);
+  const [roleFilter, setRoleFilter] = useState('All');
+  const [selected, setSelected] = useState(null);
+  const [form, setForm] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
   const fetchUsers = async () => {
     try {
@@ -34,218 +33,177 @@ export default function UsersPage() {
       setLoading(false);
     }
   };
+  useEffect(() => { fetchUsers(); }, []);
 
-  const handleOpenUserModal = (u) => {
-    setSelectedUser(u);
-    setEditAvatarUrl(u.avatarUrl || '');
-    setEditDepartment(u.department || 'Cyber Forensics Unit');
-    setEditBadgeId(u.badgeId || `CF-${Math.floor(1000 + Math.random() * 9000)}`);
-    setEditBio(u.bio || 'Digital Forensics Specialist');
+  const open = (u) => {
+    setSelected(u);
+    setForm({ role: u.role, status: u.status || 'active', name: u.name, department: u.department || '', badgeId: u.badgeId || '', bio: u.bio || '' });
   };
 
-  const filtered = users.filter(u =>
-    u.name.toLowerCase().includes(search.toLowerCase()) ||
-    u.email.toLowerCase().includes(search.toLowerCase()) ||
-    (u.department && u.department.toLowerCase().includes(search.toLowerCase()))
-  );
+  const save = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const { data } = await API.put(`/api/users/${selected._id}`, form);
+      setUsers(prev => prev.map(u => (u._id === data._id ? data : u)));
+      toast.success(`Updated ${data.name}`);
+      setSelected(null);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Update failed');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const remove = async () => {
+    const target = confirmDelete;
+    try {
+      await API.delete(`/api/users/${target._id}`);
+      setUsers(prev => prev.filter(u => u._id !== target._id));
+      toast.success(`Removed ${target.name}`);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Delete failed');
+    } finally {
+      setConfirmDelete(null);
+    }
+  };
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return users.filter(u =>
+      (roleFilter === 'All' || u.role === roleFilter) &&
+      (!q || u.name.toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q) || (u.department || '').toLowerCase().includes(q))
+    );
+  }, [users, search, roleFilter]);
+
+  const counts = useMemo(() => ROLES.reduce((acc, r) => ({ ...acc, [r]: users.filter(u => u.role === r).length }), {}), [users]);
 
   return (
-    <>
-      <div className="page-header" style={{ marginBottom: 20 }}>
+    <Reveal each={0.05}>
+      <Reveal.Item className="page-header">
         <div>
-          <h1 style={{ fontFamily: "'Space Grotesk'", fontSize: 22, fontWeight: 800, color: '#0f172a' }}>
-            User Access & Specialist Directory
-          </h1>
-          <p style={{ color: '#64748b', fontSize: 13 }}>
-            {users.length} authenticated personnel & forensic specialists
-          </p>
+          <h1>User directory</h1>
+          <p>{users.length} personnel · {counts.admin || 0} admins · {counts.investigator || 0} investigators · {counts.analyst || 0} analysts</p>
         </div>
-      </div>
+        {isAdmin && <Badge variant="info"><ShieldCheck size={12} /> Admin controls enabled</Badge>}
+      </Reveal.Item>
 
-      <div className="page-body">
-        {/* Search & Filter Bar */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-          style={{ marginBottom: 20 }}>
-          <div className="input-wrapper input-icon" style={{ maxWidth: 400 }}>
-            <Search size={16} className="input-icon-el" />
-            <input className="input" placeholder="Search by specialist name, email, or department..."
-              value={search} onChange={e => setSearch(e.target.value)} style={{ paddingLeft: 40, borderRadius: 12 }} />
-          </div>
-        </motion.div>
+      <Reveal.Item style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 18 }}>
+        <div className="input-wrapper input-icon" style={{ flex: '1 1 280px', maxWidth: 420 }}>
+          <Search size={16} className="input-icon-el" aria-hidden="true" />
+          <input className="input" placeholder="Search by name, email or department…" value={search} onChange={e => setSearch(e.target.value)} aria-label="Search users" />
+        </div>
+        <div role="tablist" aria-label="Filter by role" style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 12, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+          {['All', ...ROLES].map(r => (
+            <button key={r} role="tab" aria-selected={roleFilter === r} onClick={() => setRoleFilter(r)} className="btn btn-sm"
+              style={{ position: 'relative', background: 'transparent', color: roleFilter === r ? 'var(--text-primary)' : 'var(--text-muted)', textTransform: 'capitalize', minHeight: 32 }}>
+              {roleFilter === r && <motion.span layoutId="role-pill" transition={spring} style={{ position: 'absolute', inset: 0, borderRadius: 8, background: 'var(--surface)', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--border)' }} />}
+              <span style={{ position: 'relative' }}>{r}</span>
+            </button>
+          ))}
+        </div>
+      </Reveal.Item>
 
-        {/* Role Summary Stats */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-          style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, maxWidth: 540, marginBottom: 24 }}>
-          {['admin', 'investigator', 'analyst'].map(role => {
-            const rs = roleStyles[role];
-            const count = users.filter(u => u.role === role).length;
-            return (
-              <div key={role} style={{
-                background: 'white', border: `1.5px solid ${rs.border}`,
-                borderRadius: 16, padding: '14px 18px', boxShadow: '0 4px 20px rgba(0,0,0,0.02)',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between'
-              }}>
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: rs.color, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                    {role}s
+      {loading ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>{[0, 1, 2, 3, 4, 5].map(i => <Skeleton key={i} h={170} r={16} />)}</div>
+      ) : filtered.length === 0 ? (
+        <EmptyState icon={Users} title="No matching personnel" description="Try a different search or role filter." />
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+          {filtered.map(u => (
+            <Reveal.Item key={u._id}>
+              <SpotlightCard className="card-hover" style={{ padding: 18, height: '100%', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                  <Avatar name={u.name} src={u.avatarUrl} size={48} />
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.name}{u._id === me?._id && <span style={{ color: 'var(--text-faint)', fontWeight: 500 }}> (you)</span>}</div>
+                    <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+                      <Badge variant={ROLE_TONE[u.role]}>{u.role}</Badge>
+                      {u.status && <Badge variant={STATUS_TONE[u.status]}>{u.status}</Badge>}
+                    </div>
                   </div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: '#0f172a', fontFamily: "'Space Grotesk'", marginTop: 2 }}>{count}</div>
                 </div>
-                <div style={{ width: 34, height: 34, borderRadius: 10, background: rs.bg, color: rs.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Shield size={16} />
+                <div style={{ display: 'grid', gap: 6, fontSize: 13, color: 'var(--text-muted)' }}>
+                  {u.email && <span style={{ display: 'flex', gap: 8, alignItems: 'center', minWidth: 0 }}><Mail size={14} aria-hidden="true" /><span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.email}</span></span>}
+                  <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}><Building2 size={14} aria-hidden="true" />{u.department || 'Cyber Forensics Unit'}</span>
+                  {u.badgeId && <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}><BadgeCheck size={14} aria-hidden="true" /><span className="mono">{u.badgeId}</span></span>}
                 </div>
-              </div>
-            );
-          })}
-        </motion.div>
-
-        {/* User Cards Grid */}
-        {loading ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
-            {[...Array(6)].map((_, i) => <div key={i} className="skeleton" style={{ height: 190, borderRadius: 20 }} />)}
-          </div>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
-            {filtered.map(u => {
-              const rs = roleStyles[u.role] || roleStyles.investigator;
-              return (
-                <motion.div key={u._id} whileHover={{ y: -4, boxShadow: '0 14px 40px rgba(29,78,216,0.1)' }}
-                  onClick={() => handleOpenUserModal(u)}
-                  style={{
-                    background: 'white', borderRadius: 20, border: '1px solid var(--border)',
-                    padding: 20, cursor: 'pointer', transition: 'all 0.3s ease', position: 'relative'
-                  }}>
-                  {/* Header Row: Avatar Photo + Basic Info */}
-                  <div style={{ display: 'flex', gap: 14, marginBottom: 14 }}>
-                    {u.avatarUrl ? (
-                      <img src={u.avatarUrl} alt={u.name} style={{ width: 52, height: 52, borderRadius: 16, objectFit: 'cover', border: '2px solid white', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                    ) : (
-                      <div style={{
-                        width: 52, height: 52, borderRadius: 16, flexShrink: 0,
-                        background: 'linear-gradient(135deg, #1d4ed8, #06b6d4)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: 'white', fontWeight: 800, fontSize: 20, boxShadow: '0 4px 14px rgba(29,78,216,0.25)'
-                      }}>
-                        {u.name[0]?.toUpperCase()}
-                      </div>
+                {isAdmin && (
+                  <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
+                    <button className="btn btn-outline btn-sm" style={{ flex: 1 }} onClick={() => open(u)}><UserCog size={14} /> Manage</button>
+                    {u._id !== me?._id && (
+                      <button className="btn btn-soft-danger btn-sm btn-icon" onClick={() => setConfirmDelete(u)} aria-label={`Delete ${u.name}`}><Trash2 size={14} /></button>
                     )}
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontWeight: 700, fontSize: 15, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {u.name}
-                      </div>
-                      <div style={{ fontSize: 12, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 1 }}>
-                        {u.email}
-                      </div>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: '#2563eb', display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
-                        <Building size={11} /> {u.department || 'Cyber Forensics Unit'}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Bio snippet */}
-                  <p style={{ fontSize: 12, color: '#64748b', lineHeight: 1.4, margin: '0 0 14px 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                    {u.bio || 'Digital Forensics Specialist & Incident Response Investigator.'}
-                  </p>
-
-                  {/* Footer Row: Badges */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid #f1f5f9', paddingTop: 12 }}>
-                    <span style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 5,
-                      padding: '3px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700,
-                      textTransform: 'uppercase', letterSpacing: '0.06em',
-                      background: rs.bg, color: rs.color, border: `1px solid ${rs.border}`,
-                    }}>
-                      <Activity size={10} /> {u.role}
-                    </span>
-
-                    <div style={{
-                      display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700,
-                      color: '#16a34a', background: 'rgba(34,197,94,0.08)', padding: '3px 8px',
-                      borderRadius: 99, border: '1px solid rgba(34,197,94,0.2)',
-                    }}>
-                      <Shield size={10} /> 2FA Active
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Specialist Details Modal */}
-      <AnimatePresence>
-        {selectedUser && (
-          <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1100,
-            background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20
-          }}>
-            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-              style={{
-                background: 'white', borderRadius: 24, padding: 24, width: '100%', maxWidth: 480,
-                boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', border: '1px solid var(--border)'
-              }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                <h3 style={{ fontSize: 17, fontWeight: 700, color: '#0f172a', margin: 0 }}>
-                  Specialist Personnel File
-                </h3>
-                <button onClick={() => setSelectedUser(null)} style={{ border: 'none', background: '#f1f5f9', borderRadius: 8, padding: 6, cursor: 'pointer', color: '#64748b' }}>
-                  <X size={18} />
-                </button>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16, padding: 14, background: '#f8fafc', borderRadius: 16, border: '1px solid #e2e8f0' }}>
-                {selectedUser.avatarUrl ? (
-                  <img src={selectedUser.avatarUrl} alt={selectedUser.name} style={{ width: 64, height: 64, borderRadius: 18, objectFit: 'cover' }} />
-                ) : (
-                  <div style={{ width: 64, height: 64, borderRadius: 18, background: 'linear-gradient(135deg, #1d4ed8, #06b6d4)', color: 'white', fontWeight: 800, fontSize: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {selectedUser.name[0]?.toUpperCase()}
                   </div>
                 )}
-                <div>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>{selectedUser.name}</div>
-                  <div style={{ fontSize: 12, color: '#64748b' }}>{selectedUser.email}</div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#16a34a', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <BadgeCheck size={12} /> {selectedUser.department || 'Cyber Forensics Unit'}
-                  </div>
-                </div>
+              </SpotlightCard>
+            </Reveal.Item>
+          ))}
+        </div>
+      )}
+
+      {/* Manage modal */}
+      <Modal open={!!selected} onClose={() => setSelected(null)} title={selected ? `Manage ${selected.name}` : ''} icon={UserCog}
+        footer={<>
+          <button className="btn btn-ghost" onClick={() => setSelected(null)}>Cancel</button>
+          <ShimmerButton size="md" form="manage-user-form" type="submit" loading={saving}>Save changes</ShimmerButton>
+        </>}>
+        {selected && (
+          <form id="manage-user-form" onSubmit={save}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+              <div className="form-group">
+                <label className="label" htmlFor="mu-role">Role</label>
+                <select id="mu-role" className="input" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })} disabled={selected._id === me?._id}>
+                  {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+                {selected._id === me?._id && <div className="helper">You cannot change your own role.</div>}
               </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>Profile Picture URL</label>
-                  <input type="text" className="input" placeholder="https://example.com/avatar.jpg" value={editAvatarUrl} onChange={e => setEditAvatarUrl(e.target.value)} />
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  <div>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>Department</label>
-                    <input type="text" className="input" value={editDepartment} onChange={e => setEditDepartment(e.target.value)} />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>Badge ID</label>
-                    <input type="text" className="input" value={editBadgeId} onChange={e => setEditBadgeId(e.target.value)} />
-                  </div>
-                </div>
-
-                <div>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>Specialist Bio</label>
-                  <textarea className="input" rows={2} value={editBio} onChange={e => setEditBio(e.target.value)} />
-                </div>
+              <div className="form-group">
+                <label className="label" htmlFor="mu-status">Account status</label>
+                <select id="mu-status" className="input" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })} disabled={selected._id === me?._id}>
+                  {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
               </div>
-
-              <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-                <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setSelectedUser(null)}>Close</button>
-                <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => {
-                  toast.success('Personnel record updated');
-                  setSelectedUser(null);
-                }}>Save Specialist File</button>
+            </div>
+            {form.status === 'suspended' && (
+              <div className="alert alert-warning" style={{ marginBottom: 14 }}><Ban size={16} style={{ color: 'var(--warning)', flexShrink: 0 }} /><span>Suspended users are signed out immediately and cannot log in until reactivated.</span></div>
+            )}
+            <div className="form-group">
+              <label className="label" htmlFor="mu-name">Full name</label>
+              <input id="mu-name" className="input" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+              <div className="form-group">
+                <label className="label" htmlFor="mu-dept">Department</label>
+                <input id="mu-dept" className="input" value={form.department} onChange={e => setForm({ ...form, department: e.target.value })} />
               </div>
-            </motion.div>
-          </div>
+              <div className="form-group">
+                <label className="label" htmlFor="mu-badge">Badge ID</label>
+                <input id="mu-badge" className="input mono" value={form.badgeId} onChange={e => setForm({ ...form, badgeId: e.target.value })} />
+              </div>
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="label" htmlFor="mu-bio">Bio</label>
+              <textarea id="mu-bio" className="input" rows={2} value={form.bio} onChange={e => setForm({ ...form, bio: e.target.value })} />
+            </div>
+          </form>
         )}
-      </AnimatePresence>
-    </>
+      </Modal>
+
+      {/* Delete confirm */}
+      <Modal open={!!confirmDelete} onClose={() => setConfirmDelete(null)} title="Delete user" icon={AlertTriangle} width={440}
+        footer={<>
+          <button className="btn btn-ghost" onClick={() => setConfirmDelete(null)}>Cancel</button>
+          <button className="btn btn-danger" onClick={remove}><Trash2 size={15} /> Delete permanently</button>
+        </>}>
+        {confirmDelete && (
+          <p style={{ fontSize: 14.5 }}>
+            This removes <strong style={{ color: 'var(--text-primary)' }}>{confirmDelete.name}</strong> ({confirmDelete.email}) from the platform. Their audit-log entries are retained. This cannot be undone.
+          </p>
+        )}
+      </Modal>
+
+      <span className="sr-only" aria-live="polite">{saving ? 'Saving' : ''}</span>
+    </Reveal>
   );
 }
