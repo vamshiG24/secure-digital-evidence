@@ -7,10 +7,13 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const path = require('path');
+const cookieParser = require('cookie-parser');
 const connectDB = require('./config/db');
+const { connectRedis } = require('./config/redis');
 
 // Connect to Database
 connectDB();
+connectRedis();
 
 const app = express();
 
@@ -21,6 +24,7 @@ const server = http.createServer(app);
 
 // Socket.io Setup
 const allowedOrigins = [
+    "http://localhost",
     "http://localhost:5173",
     "http://localhost:5174",
     "http://localhost:5175",
@@ -49,7 +53,17 @@ const io = new Server(server, {
 });
 
 // Middleware
+const os = require('os');
+const SERVER_ID = os.hostname();
+
+app.use((req, res, next) => {
+    console.log(`[${SERVER_ID}] Handling request: ${req.method} ${req.url}`);
+    res.setHeader('X-Server-Name', SERVER_ID);
+    next();
+});
+
 app.use(express.json());
+app.use(cookieParser());
 app.use(cors({
     origin: (origin, callback) => {
         // Allow requests with no origin (like mobile apps or curl requests)
@@ -75,6 +89,9 @@ app.use('/api/cases', require('./routes/caseRoutes'));
 app.use('/api/evidence', require('./routes/evidenceRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/logs', require('./routes/auditRoutes'));
+app.use('/api/rag', require('./routes/ragRoutes'));
+app.use('/api/search', require('./routes/omniRoutes'));
+
 
 
 // Socket.io Connection

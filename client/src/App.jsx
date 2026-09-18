@@ -1,48 +1,62 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
-import { SocketProvider } from './context/SocketContext';
-import { ThemeProvider } from './context/ThemeContext';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
-import CreateCase from './pages/CreateCase';
-import CaseDetail from './pages/CaseDetail';
-import Logs from './pages/Logs';
-import CasesList from './pages/CasesList';
-import Profile from './pages/Profile';
-import Settings from './pages/Settings';
-import ProtectedRoute from './components/ProtectedRoute';
-import Layout from './components/layout/Layout';
+import AppLayout from './layouts/AppLayout';
+import LoginPage from './pages/LoginPage';
+import DashboardPage from './pages/DashboardPage';
+import CasesPage from './pages/CasesPage';
+import CaseDetailPage from './pages/CaseDetailPage';
+import EvidencePage from './pages/EvidencePage';
+import NotificationsPage from './pages/NotificationsPage';
+import AuditLogsPage from './pages/AuditLogsPage';
+import UsersPage from './pages/UsersPage';
+import AiStudioPage from './pages/AiStudioPage';
+import UserProfilePage from './pages/UserProfilePage';
+import './index.css';
 
-function App() {
+export default function App() {
   return (
-    <Router>
-      <ThemeProvider>
-        <AuthProvider>
-          <SocketProvider>
-            <div className="min-h-screen bg-background text-text font-sans">
-              <Routes>
-                {/* Public Routes */}
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-
-                {/* Protected Routes with Layout */}
-                <Route path="/" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
-                <Route path="/create-case" element={<ProtectedRoute><Layout><CreateCase /></Layout></ProtectedRoute>} />
-                <Route path="/cases" element={<ProtectedRoute><Layout><CasesList /></Layout></ProtectedRoute>} />
-                <Route path="/cases/:id" element={<ProtectedRoute><Layout><CaseDetail /></Layout></ProtectedRoute>} />
-                <Route path="/profile" element={<ProtectedRoute><Layout><Profile /></Layout></ProtectedRoute>} />
-                <Route path="/settings" element={<ProtectedRoute><Layout><Settings /></Layout></ProtectedRoute>} />
-                <Route path="/logs" element={<ProtectedRoute><Layout><Logs /></Layout></ProtectedRoute>} />
-
-                <Route path="*" element={<Navigate to="/" />} />
-              </Routes>
-            </div>
-          </SocketProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </Router>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route element={<AppLayout />}>
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/cases" element={<CasesPage />} />
+            <Route path="/cases/:id" element={<CaseDetailPage />} />
+            <Route path="/evidence" element={<EvidencePage />} />
+            <Route path="/ai-studio" element={<AiStudioPage />} />
+            <Route path="/notifications" element={<NotificationsPage />} />
+            <Route path="/audit-logs" element={<AuditLogsPage />} />
+            <Route path="/users" element={<UsersPage />} />
+            <Route path="/profile" element={<UserProfilePage />} />
+            <Route path="/settings" element={<Navigate to="/profile" replace />} />
+          </Route>
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+      </BrowserRouter>
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          style: {
+            borderRadius: '12px',
+            background: '#fff',
+            color: '#0f172a',
+            fontSize: '14px',
+            fontWeight: 500,
+            boxShadow: '0 8px 32px rgba(29,78,216,0.15)',
+            border: '1px solid rgba(29,78,216,0.1)',
+            padding: '12px 16px',
+          },
+          success: {
+            iconTheme: { primary: '#16a34a', secondary: '#fff' },
+          },
+          error: {
+            iconTheme: { primary: '#dc2626', secondary: '#fff' },
+          },
+        }}
+      />
+    </AuthProvider>
   );
 }
-
-export default App;

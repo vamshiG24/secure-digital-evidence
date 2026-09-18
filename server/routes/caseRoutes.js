@@ -7,10 +7,17 @@ const {
     updateCase,
     deleteCase,
     getCaseMessages,
-    sendCaseMessage
+    sendCaseMessage,
+    getCaseTimeline,
+    exportCaseDossier,
+    getCaseAnalytics,
+    addCaseNote
 } = require('../controllers/caseController');
 const { protect, authorize } = require('../middlewares/authMiddleware');
 const auditLog = require('../middlewares/auditMiddleware');
+
+// Aggregate forensic stats (must precede /:id)
+router.get('/stats/analytics', protect, getCaseAnalytics);
 
 router.route('/')
     .get(protect, getCases)
@@ -24,5 +31,10 @@ router.route('/:id')
 router.route('/:id/messages')
     .get(protect, getCaseMessages)
     .post(protect, sendCaseMessage);
+
+// Forensic Timeline & Dossier Export routes
+router.get('/:id/timeline', protect, auditLog('View Case Forensic Timeline'), getCaseTimeline);
+router.get('/:id/export', protect, auditLog('Export Case Forensic Dossier'), exportCaseDossier);
+router.post('/:id/notes', protect, authorize('admin', 'investigator'), auditLog('Add Investigator Note'), addCaseNote);
 
 module.exports = router;

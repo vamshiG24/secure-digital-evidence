@@ -7,14 +7,21 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "seed": "node seeder.js",
     "dev": "nodemon server.js",
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev-user": "nodemon microservices/user-service/index.js",
+    "dev-case": "nodemon microservices/case-service/index.js",
+    "dev-evidence": "nodemon microservices/evidence-service/index.js",
+    "dev-notification": "nodemon microservices/notification-service/index.js",
+    "dev-audit": "nodemon microservices/audit-service/index.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@google/genai": "^2.15.0",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^1.41.3",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.2.4",
     "express": "^5.2.1",
@@ -25,6 +32,8 @@
     "multer": "^2.0.2",
     "multer-storage-cloudinary": "^4.0.0",
     "nodemailer": "^8.0.10",
+    "pdf-parse": "^2.4.5",
+    "redis": "^6.0.0",
     "socket.io": "^4.8.3",
     "streamifier": "^0.1.1"
   },

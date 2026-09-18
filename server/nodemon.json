@@ -1,0 +1,6 @@
+{
+  "verbose": false,
+  "ignore": ["uploads/*", "node_modules/*", ".git/*"],
+  "watch": ["controllers/", "routes/", "models/", "middlewares/", "config/", "services/", "microservices/", "server.js"],
+  "ext": "js,json"
+}

@@ -1,92 +1,56 @@
-import { createContext, useState, useEffect, useContext } from 'react';
-import axios from 'axios';
-import { API_ENDPOINTS } from '../config/api';
+import { createContext, useContext, useState, useEffect } from 'react';
+import API from '../api/axios';
 
-const AuthContext = createContext();
-
-export const useAuth = () => useContext(AuthContext);
+const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const checkUser = async () => {
-            const token = localStorage.getItem('token');
-            if (token) {
-                try {
-                    const config = {
-                        headers: {
-                            Authorization: `Bearer ${token}`,
-                        },
-                    };
-                    const { data } = await axios.get(API_ENDPOINTS.ME, config);
-                    setUser(data);
-                } catch (error) {
-                    localStorage.removeItem('token');
-                    setUser(null);
-                }
-            }
-            setLoading(false);
-        };
-
-        checkUser();
-    }, []);
-
-    const login = async (email, password) => {
-        try {
-            const { data } = await axios.post(API_ENDPOINTS.LOGIN, { email, password });
-            
-            // Check if 2FA challenge is requested
-            if (data.requires2FA) {
-                return { success: true, requires2FA: true, email: data.email };
-            }
-
-            localStorage.setItem('token', data.token);
-            setUser(data);
-            return { success: true };
-        } catch (error) {
-            return { success: false, message: error.response?.data?.message || 'Login failed' };
-        }
-    };
-
-    const verifyOTP = async (email, otp) => {
-        try {
-            const { data } = await axios.post(API_ENDPOINTS.VERIFY_LOGIN_OTP, { email, otp });
-            localStorage.setItem('token', data.token);
-            setUser(data);
-            return { success: true };
-        } catch (error) {
-            return { success: false, message: error.response?.data?.message || 'Verification failed' };
-        }
-    };
-
-    const register = async (name, email, password, role) => {
-        try {
-            const { data } = await axios.post(API_ENDPOINTS.REGISTER, { name, email, password, role });
-            localStorage.setItem('token', data.token);
-            setUser(data);
-            return { success: true };
-        } catch (error) {
-            return { success: false, message: error.response?.data?.message || 'Registration failed' };
-        }
-    };
-
-    const logout = () => {
-        localStorage.removeItem('token');
+  useEffect(() => {
+    const fetchMe = async () => {
+      try {
+        const { data } = await API.get('/api/users/me');
+        setUser(data);
+      } catch {
         setUser(null);
+      } finally {
+        setLoading(false);
+      }
     };
+    fetchMe();
+  }, []);
 
-    const updateUser = (userData) => {
-        setUser(userData);
-        if (userData.token) {
-            localStorage.setItem('token', userData.token);
-        }
-    };
+  const login = async (email, password) => {
+    const { data } = await API.post('/api/users/login', { email, password });
+    return data;
+  };
 
-    return (
-        <AuthContext.Provider value={{ user, login, verifyOTP, register, logout, updateUser, loading }}>
-            {children}
-        </AuthContext.Provider>
-    );
+  const verifyOTP = async (email, otp) => {
+    const { data } = await API.post('/api/users/verify-login-otp', { email, otp });
+    setUser(data);
+    return data;
+  };
+
+  const register = async (userData) => {
+    const { data } = await API.post('/api/users', userData);
+    return data;
+  };
+
+  const logout = async () => {
+    await API.post('/api/users/logout');
+    setUser(null);
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, loading, login, verifyOTP, register, logout, setUser }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  return ctx;
 };

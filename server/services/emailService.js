@@ -5,11 +5,12 @@ const nodemailer = require('nodemailer');
  * Logs the code to the console for development and local testing.
  * @param {string} email - Destination email address
  * @param {string} otp - 6-digit verification code
+ * @param {string} [purpose='login'] - Purpose of the OTP ('login' or 'registration')
  */
-const sendOTP = async (email, otp) => {
+const sendOTP = async (email, otp, purpose = 'login') => {
     // 1. Always log the OTP to the console for development/demo ease
     console.log(`\n==================================================`);
-    console.log(`[DEV/SECURITY DEBUG] OTP Code for ${email} is: ${otp}`);
+    console.log(`[DEV/SECURITY DEBUG] OTP Code (${purpose}) for ${email} is: ${otp}`);
     console.log(`==================================================\n`);
 
     // 2. Read SMTP settings from environment variables
@@ -28,21 +29,34 @@ const sendOTP = async (email, otp) => {
                 }
             });
 
+            const isRegister = purpose === 'registration';
+            const subject = isRegister 
+                ? 'Verify Your Secure Evidence Account' 
+                : 'Your Security Verification Code';
+            
+            const messageText = isRegister
+                ? 'Welcome to the Secure Evidence System! Please use the verification code below to verify your email address and complete your account registration.'
+                : 'A login attempt was made on your Secure Evidence account. Please use the verification code below to complete your sign-in.';
+
+            const warningText = isRegister
+                ? 'This code will expire in 5 minutes. If you did not make this request, please ignore this email.'
+                : 'This code will expire in 5 minutes. If you did not make this request, please secure your account immediately.';
+
             const mailOptions = {
                 from: EMAIL_FROM || '"Secure Evidence System" <no-reply@secureevidence.com>',
                 to: email,
-                subject: 'Your 2FA Verification Code',
-                text: `Your security verification code is: ${otp}. It will expire in 5 minutes.`,
+                subject,
+                text: `${messageText}\n\nCode: ${otp}\n\n${warningText}`,
                 html: `
                     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; background-color: #ffffff; color: #333333;">
                         <h2 style="color: #1d4ed8; text-align: center;">Secure Evidence Management</h2>
                         <hr style="border: 0; border-top: 1px solid #e0e0e0;" />
                         <p>Hello,</p>
-                        <p>You are receiving this email because a login attempt or security change requested a Two-Factor Authentication (2FA) verification code.</p>
+                        <p>${messageText}</p>
                         <div style="background-color: #f3f4f6; padding: 15px; text-align: center; border-radius: 8px; margin: 20px 0;">
                             <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #111827;">${otp}</span>
                         </div>
-                        <p style="color: #6b7280; font-size: 14px;">This code will expire in 5 minutes. If you did not make this request, please secure your account immediately.</p>
+                        <p style="color: #6b7280; font-size: 14px;">${warningText}</p>
                         <hr style="border: 0; border-top: 1px solid #e0e0e0; margin-top: 30px;" />
                         <p style="font-size: 12px; color: #9ca3af; text-align: center;">This is an automated security notification. Please do not reply to this email.</p>
                     </div>

@@ -20,6 +20,27 @@ const userSchema = new mongoose.Schema({
         enum: ['admin', 'investigator', 'analyst'],
         default: 'investigator'
     },
+    avatarUrl: {
+        type: String,
+        default: ''
+    },
+    department: {
+        type: String,
+        default: 'Cyber Forensics Unit'
+    },
+    badgeId: {
+        type: String,
+        default: ''
+    },
+    bio: {
+        type: String,
+        default: 'Digital Forensics Specialist'
+    },
+    status: {
+        type: String,
+        enum: ['active', 'suspended', 'inactive'],
+        default: 'active'
+    },
     twoFactorEnabled: {
         type: Boolean,
         default: false

@@ -1,15 +1,29 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { getRedisClient } = require('../config/redis');
 
 exports.protect = async (req, res, next) => {
     let token;
 
-    if (
+    if (req.cookies && req.cookies.token) {
+        token = req.cookies.token;
+    } else if (
         req.headers.authorization &&
         req.headers.authorization.startsWith('Bearer')
     ) {
+        token = req.headers.authorization.split(' ')[1];
+    }
+
+    if (token) {
         try {
-            token = req.headers.authorization.split(' ')[1];
+            const client = getRedisClient();
+            if (client) {
+                const isBlocked = await client.get(`blocklist:${token}`);
+                if (isBlocked) {
+                    return res.status(401).json({ message: 'Not authorized, session expired (logged out)' });
+                }
+            }
+
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
             req.user = await User.findById(decoded.id).select('-password');
 
@@ -17,16 +31,14 @@ exports.protect = async (req, res, next) => {
                 return res.status(401).json({ message: 'Not authorized, user not found' });
             }
 
-            next();
+            return next();
         } catch (error) {
             console.error(error);
-            res.status(401).json({ message: 'Not authorized, token failed' });
+            return res.status(401).json({ message: 'Not authorized, token failed' });
         }
     }
 
-    if (!token) {
-        res.status(401).json({ message: 'Not authorized, no token' });
-    }
+    res.status(401).json({ message: 'Not authorized, no token' });
 };
 
 exports.authorize = (...roles) => {
