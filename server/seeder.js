@@ -45,6 +45,14 @@ const importData = async () => {
         // 2. Create Cases
         const cases = [
             {
+                title: 'Financial Fraud Investigation - Titan Corp',
+                description: 'Investigation into alleged embezzlement and falsified financial records at Titan Corp. Initial audit shows discrepancies of over $2.5M.',
+                status: 'Open',
+                priority: 'High',
+                createdBy: adminUser._id,
+                assignedTo: investigator._id
+            },
+            {
                 title: 'Data Breach Response - Server Alpha',
                 description: 'Unauthorized access detected on Server Alpha containing customer PII. Suspected phishing campaign led to compromised credentials.',
                 status: 'In Progress',
